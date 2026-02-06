@@ -1,0 +1,71 @@
+[
+    {
+        "dept_name": "Chief Executive Officer",
+        "short_name": "CEO"
+    },
+    {
+        "dept_name": "Internal Audit",
+	    "Co": "Chief Internal Audit officer",
+        "short_name": "Audit"
+    },
+    {
+        "dept_name": "Legal Service and Ethics",
+	    "Co": "Chief Legal Services and Ethics officer",
+        "short_name": "Legal&Ethics"
+    },
+    {
+        "dept_name": "Strategic Planning and Investment",
+	    "Co": "Chief Strategic planning and Investment officer",
+        "short_name": "SPlanning"
+    },
+    {
+        "dept_name": "Communication",
+	    "Co": "Chief Comminication officer",
+        "short_name": "Communication"
+    },
+    {
+        "dept_name": "Network Infrastructure Management",
+	    "Co": "Chief Network Infrastructure officer",
+        "short_name": "NIM"
+    },
+    {
+        "dept_name": "Marketing, Sales and Customer Service",
+		"Co": "Chief Marketing, Sales and Customer Service officer",	
+        "short_name": "Marketing"
+    },
+    {
+        "dept_name": "Finance",
+	    "Co": "Chief Finance officer",
+        "short_name": "Finance"
+    },
+    {
+        "dept_name": "Human Resource",
+	    "Co": "Chief Human Resource officer",         
+        "short_name": "HR"
+    },
+    {
+        "dept_name": "Information Technology",
+		"Co": "Chief Information Technology officer",  
+        "short_name": "IT"
+    },
+    {
+        "dept_name": "Process and Quality Management",
+	    "Co": "Chief Process and Quality Management officer",
+        "short_name": "P&Qmgt"
+    },
+    {
+        "dept_name": "EEU Projects Portfolio Management",
+	    "Co": "Chief Projects Portfolio Management officer",
+        "short_name": "PPM"
+    },
+    {
+        "dept_name": "Supply Chain Management and PGS",
+	    "Co": "Chief Supply Chain Management and PGS officer",
+        "short_name": "SC&PGS"
+    },
+    {
+        "dept_name": "Region Coordination",
+	    "Co": "Chief Regional Coordination officer",
+        "short_name": "RGN Coordination"
+    }
+]

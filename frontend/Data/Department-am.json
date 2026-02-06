@@ -1,0 +1,70 @@
+[
+    {    
+        "dept_name": "ዋና ሥራ አስፈጻሚ ኦፊሰር",
+        "short_name": "CEO"
+    },
+    {        
+        "dept_name": "ውስጣዊ ኦዲት",
+        "Co": "ዋና ውስጣዊ ኦዲት ኦፊሰር",
+        "short_name": "Audit"
+    },
+    {
+        "dept_name": "ህግና ሥነ ምግባር አገልግሎት",
+        "Co": "ዋና ህግና ሥነ ምግባር ኦፊሰር",
+        "short_name": "Legal&Ethics"
+    },
+    {       
+        "dept_name": "ስትራቴጂካዊ ዕቅድና ኢንቨስትመንት",
+        "Co": "ዋና ስትራቴጂካዊ ዕቅድና ኢንቨስትመንት ኦፊሰር",
+        "short_name": "SPlanning"
+    },
+    {
+        "dept_name": "ኮሙኒኬሽን",
+        "Co": "ዋና ኮሙኒኬሽን ኦፊሰር",
+        "short_name": "Communication"
+    },
+    {
+        "dept_name": "ኔትዎርክ መሠረተ ልማት አስተዳደር",
+        "Co": "ዋና ኔትዎርክ መሠረተ ልማት ኦፊሰር",
+        "short_name": "NIM"
+    },
+    {
+        "dept_name": "ግብይት፣ ሽያጭና ደንበኛ አገልግሎት",
+        "short_name": "Marketing"
+    },
+    {
+        "dept_name": "ፋይናንስ",
+        "Co": "ዋና ፋይናንስ ኦፊሰር",
+        "short_name": "Finance"
+    },
+    {
+        "dept_name": "ሰው ሀይል",
+        "Co": "ዋና ሰው ሀይል ኦፊሰር",
+        "short_name": "HR"
+    },
+    {
+        "dept_name": "ኢንፎርሜሽን ቴክኖሎጂ",
+        "Co": "ዋና ኢንፎርሜሽን ቴክኖሎጂ ኦፊሰር",
+        "short_name": "IT"
+    },
+    {
+        "dept_name": "ሂደትና ጥራት አስተዳደር",
+        "Co": "ዋና ሂደትና ጥራት አስተዳደር ኦፊሰር",
+        "short_name": "P&Qmgt"
+    },
+    {
+        "dept_name": "የኢኢዩ ፕሮጀክቶች ፖርትፎሊዮ አስተዳደር",
+        "Co": "ዋና ፕሮጀክቶች ፖርትፎሊዮ ኦፊሰር",
+        "short_name": "PPM"
+    },
+    {
+        "dept_name": "አቅርቦት ሰንሰለት አስተዳደርና ግዥና ግዥ አገልግሎት",
+        "Co": "ዋና አቅርቦት ሰንሰለት አስተዳደርና ግዥና ግዥ አገልግሎት ኦፊሰር",
+        "short_name": "SC&PGS"
+    },
+    {
+        "dept_name": "ክልል ቅንጅት",
+        "Co": "ዋና ክልል ቅንጅት ኦፊሰር",
+        "short_name": "RGN Coordination"
+    }
+]
