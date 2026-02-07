@@ -1,11 +1,48 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSettings } from '../contexts/SettingsContext'
+import { useAuth } from '../contexts/AuthContext'
+import api from '../api'
 import { Settings as SettingsIcon, Moon, Sun, Maximize, Minimize, Monitor, User, Bell, Shield } from 'lucide-react'
+import { useToast } from '../contexts/ToastContext'
 
 export default function Settings() {
   const { t } = useTranslation()
   const { darkMode, toggleDarkMode, isFullscreen, toggleFullscreen } = useSettings()
+  const { user } = useAuth()
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({ current_password: '', new_password: '', confirm_password: '' })
+  const [saving, setSaving] = useState(false)
+  const toast = useToast()
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault()
+    
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      toast.error('New passwords do not match')
+      return
+    }
+    
+    if (passwordForm.new_password.length < 8) {
+      toast.error('Password must be at least 8 characters')
+      return
+    }
+    
+    setSaving(true)
+    try {
+      await api.post('/api/core/change-password/', {
+        current_password: passwordForm.current_password,
+        new_password: passwordForm.new_password
+      })
+      toast.success('Password changed successfully!')
+      setPasswordForm({ current_password: '', new_password: '', confirm_password: '' })
+      setShowPasswordForm(false)
+    } catch (err) {
+      toast.error(toast.parseApiError(err))
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="p-4 space-y-6">
@@ -92,12 +129,22 @@ export default function Settings() {
           <div className="space-y-3">
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Username</div>
-              <div className="font-medium text-sm dark:text-white">Current User</div>
+              <div className="font-medium text-sm dark:text-white">{user?.username || 'N/A'}</div>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
+              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Name</div>
+              <div className="font-medium text-sm dark:text-white">{user?.first_name} {user?.last_name}</div>
             </div>
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Role</div>
-              <div className="font-medium text-sm dark:text-white">Administrator</div>
+              <div className="font-medium text-sm dark:text-white">{user?.profile?.role_display || 'N/A'}</div>
             </div>
+            {user?.profile?.department_name && (
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
+                <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Department</div>
+                <div className="font-medium text-sm dark:text-white">{user.profile.department_name}</div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -138,14 +185,66 @@ export default function Settings() {
           </div>
           
           <div className="space-y-3">
-            <button className="w-full text-left p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-              <div className="font-medium text-sm dark:text-white">Change Password</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">Update your account password</div>
-            </button>
-            <button className="w-full text-left p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-              <div className="font-medium text-sm dark:text-white">Session Management</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">View and manage active sessions</div>
-            </button>
+            {!showPasswordForm ? (
+              <button 
+                onClick={() => setShowPasswordForm(true)}
+                className="w-full text-left p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                <div className="font-medium text-sm dark:text-white">Change Password</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Update your account password</div>
+              </button>
+            ) : (
+              <form onSubmit={handlePasswordChange} className="space-y-3">
+                <div>
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Current Password</label>
+                  <input
+                    type="password"
+                    className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white"
+                    value={passwordForm.current_password}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">New Password</label>
+                  <input
+                    type="password"
+                    className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white"
+                    value={passwordForm.new_password}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, new_password: e.target.value })}
+                    required
+                    minLength={8}
+                    placeholder="Minimum 8 characters"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Confirm New Password</label>
+                  <input
+                    type="password"
+                    className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white"
+                    value={passwordForm.confirm_password}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirm_password: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="px-4 py-2 rounded-lg bg-[#0B3C5D] text-white text-sm font-medium hover:bg-[#09324F] disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Change Password'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordForm(false)}
+                    className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       </div>

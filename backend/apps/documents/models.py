@@ -15,11 +15,13 @@ SOURCE_TYPES = [
 ]
 
 STATUSES = [
-    ('REGISTERED', 'Registered'),
-    ('ASSIGNED', 'Assigned'),
-    ('IN_PROGRESS', 'In Progress'),
-    ('RESPONDED', 'Responded'),
-    ('CLOSED', 'Closed'),
+    ('REGISTERED', 'Registered'),      # Initial entry by CEO secretary
+    ('DIRECTED', 'Directed'),          # CEO has read and directed to CxO office(s)
+    ('DISPATCHED', 'Dispatched'),      # Letter sent to CxO office(s)
+    ('RECEIVED', 'Received'),          # CxO office confirmed receipt
+    ('IN_PROGRESS', 'In Progress'),    # Being worked on
+    ('RESPONDED', 'Responded'),        # Response sent
+    ('CLOSED', 'Closed'),              # Completed
 ]
 
 User = get_user_model()
@@ -56,7 +58,7 @@ class NumberSequence(models.Model):
 class Document(models.Model):
     doc_type = models.CharField(max_length=20, choices=DOC_TYPES)
     source = models.CharField(max_length=20, choices=SOURCE_TYPES, default='EXTERNAL')
-    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name='documents')
+    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name='documents', null=True, blank=True)
     assigned_to = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='assigned_documents')
     prefix = models.CharField(max_length=50, blank=True)
     sequence = models.IntegerField(default=0)
@@ -107,3 +109,18 @@ class Activity(models.Model):
     action = models.CharField(max_length=100)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class DocumentAcknowledgment(models.Model):
+    """Tracks when CC'd offices acknowledge/see a document (especially for outgoing letters)"""
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='acknowledgments')
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='document_acknowledgments')
+    acknowledged_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='document_acknowledgments')
+    acknowledged_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('document', 'department')
+        ordering = ['-acknowledged_at']
+
+    def __str__(self):
+        return f"{self.department.code} acknowledged {self.document.ref_no}"

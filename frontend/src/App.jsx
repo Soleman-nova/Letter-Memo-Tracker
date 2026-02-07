@@ -2,23 +2,30 @@ import React from 'react'
 import { Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getAccessToken, clearTokens } from './store/auth'
-import { LayoutDashboard, FileText, FilePlus, LogOut, Globe, ChevronDown, Settings as SettingsIcon } from 'lucide-react'
+import { useAuth } from './contexts/AuthContext'
+import { LayoutDashboard, FileText, FilePlus, LogOut, Globe, ChevronDown, Settings as SettingsIcon, Users } from 'lucide-react'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import DocumentsList from './pages/DocumentsList'
 import DocumentForm from './pages/DocumentForm'
 import DocumentDetail from './pages/DocumentDetail'
 import Settings from './pages/Settings'
+import UserManagement from './pages/UserManagement'
 
 function RequireAuth({ children }) {
   const authed = !!getAccessToken()
-  return authed ? children : <Navigate to="/login" replace />
+  return authed ? children : <Navigate to="/" replace />
+}
+
+function PublicOnly({ children }) {
+  const authed = !!getAccessToken()
+  return authed ? <Navigate to="/dashboard" replace /> : children
 }
 
 function NavBar() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const logout = () => { clearTokens(); navigate('/login') }
+  const logout = () => { clearTokens(); navigate('/') }
   return (
     <header className="h-14 px-4 flex items-center justify-between bg-[#0B3C5D] dark:bg-slate-900 text-white border-b border-[#09324F] dark:border-slate-700">
       <div className="flex items-center gap-3">
@@ -49,17 +56,31 @@ function NavBar() {
 function Sidebar() {
   const { t } = useTranslation()
   const location = useLocation()
+  const { canManageUsers, canCreateDocuments, user } = useAuth()
+  
+  // Build nav items based on permissions
   const navItems = [
-    { to: '/', icon: LayoutDashboard, label: t('dashboard') },
-    { to: '/documents', icon: FileText, label: t('documents') },
-    { to: '/documents/new', icon: FilePlus, label: t('new_document') },
-    { to: '/settings', icon: SettingsIcon, label: 'Settings' },
-  ]
+    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), show: true },
+    { to: '/documents', icon: FileText, label: t('documents'), show: true },
+    { to: '/documents/new', icon: FilePlus, label: t('new_document'), show: canCreateDocuments },
+    { to: '/users', icon: Users, label: 'User Management', show: canManageUsers },
+    { to: '/settings', icon: SettingsIcon, label: 'Settings', show: true },
+  ].filter(item => item.show)
+
   return (
     <aside className="w-56 shrink-0 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex flex-col">
+      {/* User role badge */}
+      {user?.profile && (
+        <div className="p-3 border-b border-slate-200 dark:border-slate-700">
+          <div className="text-xs text-slate-500 dark:text-slate-400">Logged in as</div>
+          <div className="font-medium text-sm text-slate-700 dark:text-slate-200">{user.first_name || user.username}</div>
+          <div className="text-xs mt-1 px-2 py-0.5 rounded-full bg-[#0B3C5D]/10 text-[#0B3C5D] dark:bg-[#F0B429]/20 dark:text-[#F0B429] inline-block">
+            {user.profile.role_display}
+          </div>
+        </div>
+      )}
       <nav className="flex-1 p-3 space-y-1">
         {navItems.map(({ to, icon: Icon, label }) => {
-          // Exact match for all routes to avoid multiple highlights
           const active = location.pathname === to
           return (
             <Link
@@ -88,12 +109,15 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900">
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><Dashboard /></div></div></></RequireAuth>} />
+        <Route path="/" element={<PublicOnly><Login /></PublicOnly>} />
+        <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
+        <Route path="/dashboard" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><Dashboard /></div></div></></RequireAuth>} />
         <Route path="/documents" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><DocumentsList /></div></div></></RequireAuth>} />
         <Route path="/documents/new" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><DocumentForm /></div></div></></RequireAuth>} />
         <Route path="/documents/:id" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><DocumentDetail /></div></div></></RequireAuth>} />
+        <Route path="/documents/:id/edit" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><DocumentForm /></div></div></></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><Settings /></div></div></></RequireAuth>} />
+        <Route path="/users" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><UserManagement /></div></div></></RequireAuth>} />
       </Routes>
     </div>
   )

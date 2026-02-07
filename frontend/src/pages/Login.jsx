@@ -2,25 +2,28 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { login } from '../store/auth'
+import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 
 export default function Login() {
   const { t } = useTranslation()
+  const { refreshUser } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [err, setErr] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const toast = useToast()
 
   const submit = async (e) => {
     e.preventDefault()
-    setErr('')
     setLoading(true)
     try {
       await login(username, password, import.meta.env.VITE_API_BASE_URL)
-      navigate('/')
+      await refreshUser() // Refresh user profile after login
+      navigate('/dashboard')
     } catch (e) {
-      setErr('Login failed')
+      toast.error('Login failed. Please check your credentials.')
     } finally {
       setLoading(false)
     }
@@ -44,23 +47,18 @@ export default function Login() {
       </div>
 
       {/* Auth Card */}
-      <div className="flex items-center justify-center p-6 sm:p-10 bg-slate-50">
+      <div className="flex items-center justify-center p-6 sm:p-10 bg-slate-50 dark:bg-slate-900">
         <div className="w-full max-w-md">
-          <div className="bg-white shadow-xl rounded-xl p-6 sm:p-8">
+          <div className="bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6 sm:p-8">
             <div className="mb-6">
-              <h1 className="text-2xl font-semibold text-slate-900">{t('login')}</h1>
-              <p className="text-sm text-slate-500 mt-1">Please sign in to continue</p>
+              <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">{t('login')}</h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Please sign in to continue</p>
             </div>
-            {err && (
-              <div className="mb-4 rounded-md border border-red-200 bg-red-50 text-red-700 p-2 text-sm">
-                {err}
-              </div>
-            )}
             <form onSubmit={submit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700">{t('username')}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('username')}</label>
                 <input
-                  className="mt-1 block w-full rounded-lg border border-slate-200 bg-white p-2.5 text-slate-900 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F0B429] focus:border-[#0B3C5D]"
+                  className="mt-1 block w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 p-2.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F0B429] focus:border-[#0B3C5D]"
                   value={username}
                   onChange={(e)=>setUsername(e.target.value)}
                   placeholder="you@eeu.gov.et"
@@ -68,11 +66,11 @@ export default function Login() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700">{t('password')}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('password')}</label>
                 <div className="mt-1 relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    className="block w-full rounded-lg border border-slate-200 bg-white p-2.5 pr-20 text-slate-900 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F0B429] focus:border-[#0B3C5D]"
+                    className="block w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 p-2.5 pr-20 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F0B429] focus:border-[#0B3C5D]"
                     value={password}
                     onChange={(e)=>setPassword(e.target.value)}
                     placeholder="••••••••"
@@ -81,18 +79,18 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={()=>setShowPassword(v=>!v)}
-                    className="absolute inset-y-0 right-0 px-3 text-slate-500 hover:text-slate-700"
+                    className="absolute inset-y-0 right-0 px-3 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                   >
                     {showPassword ? 'Hide' : 'Show'}
                   </button>
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <label className="inline-flex items-center gap-2 text-sm text-slate-600">
-                  <input type="checkbox" className="rounded border-slate-300 text-[#0B3C5D] focus:ring-[#F0B429]" />
+                <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                  <input type="checkbox" className="rounded border-slate-300 dark:border-slate-600 text-[#0B3C5D] focus:ring-[#F0B429]" />
                   Remember me
                 </label>
-                <a href="#" className="text-sm text-[#0B3C5D] hover:text-[#083554]">Forgot password?</a>
+                <a href="#" className="text-sm text-[#0B3C5D] dark:text-[#F0B429] hover:text-[#083554] dark:hover:text-[#D9A020]">Forgot password?</a>
               </div>
               <button
                 disabled={loading}
@@ -104,7 +102,7 @@ export default function Login() {
               </button>
             </form>
           </div>
-          <div className="mt-6 text-center text-xs text-slate-500">By signing in you agree to the Acceptable Use Policy.</div>
+          <div className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400">By signing in you agree to the Acceptable Use Policy.</div>
         </div>
       </div>
     </div>
