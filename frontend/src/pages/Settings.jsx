@@ -139,10 +139,10 @@ export default function Settings() {
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Role</div>
               <div className="font-medium text-sm dark:text-white">{user?.profile?.role_display || 'N/A'}</div>
             </div>
-            {user?.profile?.department_name && (
+            {user?.profile?.department && (
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
                 <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Department</div>
-                <div className="font-medium text-sm dark:text-white">{user.profile.department_name}</div>
+                <div className="font-medium text-sm dark:text-white">{user.profile.department.code} - {user.profile.department.name}</div>
               </div>
             )}
           </div>

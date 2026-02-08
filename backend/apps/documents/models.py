@@ -24,6 +24,19 @@ STATUSES = [
     ('CLOSED', 'Closed'),              # Completed
 ]
 
+PRIORITY_LEVELS = [
+    ('LOW', 'Low'),
+    ('NORMAL', 'Normal'),
+    ('HIGH', 'High'),
+    ('URGENT', 'Urgent'),
+]
+
+CONFIDENTIALITY_LEVELS = [
+    ('REGULAR', 'Regular'),
+    ('CONFIDENTIAL', 'Confidential'),
+    ('SECRET', 'Secret'),
+]
+
 User = get_user_model()
 
 
@@ -73,8 +86,8 @@ class Document(models.Model):
     sender_name = models.CharField(max_length=200, blank=True)
     receiver_name = models.CharField(max_length=200, blank=True)
     status = models.CharField(max_length=20, choices=STATUSES, default='REGISTERED')
-    priority = models.CharField(max_length=20, blank=True)
-    confidentiality = models.BooleanField(default=False)
+    priority = models.CharField(max_length=20, choices=PRIORITY_LEVELS, default='NORMAL', blank=True)
+    confidentiality = models.CharField(max_length=20, choices=CONFIDENTIALITY_LEVELS, default='REGULAR', blank=True)
     registered_at = models.DateTimeField(auto_now_add=True)
     # Dates
     received_date = models.DateField(null=True, blank=True)
@@ -124,3 +137,18 @@ class DocumentAcknowledgment(models.Model):
 
     def __str__(self):
         return f"{self.department.code} acknowledged {self.document.ref_no}"
+
+
+class DocumentReceipt(models.Model):
+    """Tracks when directed CxO offices mark a document as received (for internal outgoing letters)"""
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='receipts')
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='document_receipts')
+    received_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='document_receipts')
+    received_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('document', 'department')
+        ordering = ['-received_at']
+
+    def __str__(self):
+        return f"{self.department.code} received {self.document.ref_no}"

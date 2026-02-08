@@ -111,7 +111,11 @@ def me(request):
         'profile': {
             'role': profile.role,
             'role_display': profile.get_role_display(),
-            'department': profile.department_id,
+            'department': {
+                'id': profile.department.id,
+                'code': profile.department.code,
+                'name': profile.department.name,
+            } if profile.department else None,
             'department_name': profile.department.name if profile.department else None,
             'department_code': profile.department.code if profile.department else None,
             'can_manage_users': profile.can_manage_users,

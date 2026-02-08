@@ -102,7 +102,7 @@ export default function UserManagement() {
       last_name: user.last_name || '',
       password: '',
       role: user.profile?.role || 'CXO',
-      department: user.profile?.department || '',
+      department: user.profile?.department?.id || user.profile?.department || '',
     })
     setEditingUser(user)
     setShowForm(true)
@@ -192,8 +192,7 @@ export default function UserManagement() {
                     value={form.username}
                     onChange={(e) => setForm({ ...form, username: e.target.value })}
                     required
-                    disabled={!!editingUser}
-                  />
+                                      />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 dark:text-white">Email</label>

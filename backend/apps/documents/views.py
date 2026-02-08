@@ -3,9 +3,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q
-from .models import Document, Attachment, Activity, DocumentAcknowledgment
+from .models import Document, Attachment, Activity, DocumentAcknowledgment, DocumentReceipt
 from .serializers import DocumentListSerializer, DocumentDetailSerializer, DocumentCreateSerializer, DocumentUpdateSerializer, AttachmentSerializer
-from apps.core.models import UserProfile
+from apps.core.models import UserProfile, Department
 
 
 class CanCreateDocument(permissions.BasePermission):
@@ -156,6 +156,71 @@ class DocumentViewSet(viewsets.ModelViewSet):
         valid_statuses = ['REGISTERED', 'DIRECTED', 'DISPATCHED', 'RECEIVED', 'IN_PROGRESS', 'RESPONDED', 'CLOSED']
         if new_status not in valid_statuses:
             return Response({'error': 'Invalid status'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        scenario = self._get_scenario(document)
+        
+        # Valid status transitions per scenario
+        valid_transitions = {
+            1: {'REGISTERED': ['DIRECTED'], 'DIRECTED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            2: {'REGISTERED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            3: {'REGISTERED': ['CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            4: {'REGISTERED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            5: {'REGISTERED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            6: {'REGISTERED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            7: {'REGISTERED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            8: {'REGISTERED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            9: {'REGISTERED': ['CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            10: {'REGISTERED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            11: {'REGISTERED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            12: {'REGISTERED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            13: {'REGISTERED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+        }
+        
+        # Validate transition (skip for RECEIVED which is handled by mark_received action)
+        if new_status != 'RECEIVED' and scenario in valid_transitions:
+            allowed = valid_transitions[scenario].get(document.status, [])
+            if new_status not in allowed:
+                return Response({
+                    'error': f'Cannot transition from {document.status} to {new_status} for this document type. Allowed: {", ".join(allowed) if allowed else "none"}'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Dispatch permission checks
+        if new_status == 'DISPATCHED':
+            # S1: CEO Secretary dispatches after direction
+            if scenario == 1:
+                if document.status != 'DIRECTED':
+                    return Response({'error': 'Document must be directed before dispatching (Scenario 1)'}, status=status.HTTP_400_BAD_REQUEST)
+                if profile.role not in ['CEO_SECRETARY', 'SUPER_ADMIN']:
+                    raise PermissionDenied("Only CEO Secretary can dispatch this document")
+            # S4, S6: CEO Secretary dispatches directly from REGISTERED
+            elif scenario in [4, 6]:
+                if document.status != 'REGISTERED':
+                    return Response({'error': 'Document must be in REGISTERED status to dispatch'}, status=status.HTTP_400_BAD_REQUEST)
+                if profile.role not in ['CEO_SECRETARY', 'SUPER_ADMIN']:
+                    raise PermissionDenied("Only CEO Secretary can dispatch this document")
+            # S8, S11, S12: CxO Secretary dispatches from REGISTERED
+            elif scenario in [8, 11, 12]:
+                if document.status != 'REGISTERED':
+                    return Response({'error': 'Document must be in REGISTERED status to dispatch'}, status=status.HTTP_400_BAD_REQUEST)
+                if profile.role != 'CXO_SECRETARY':
+                    raise PermissionDenied("Only CxO Secretary can dispatch this document")
+                # Ensure the dispatching CxO secretary belongs to the originating department
+                if profile.department_id != document.department_id:
+                    raise PermissionDenied("Only the originating CxO office can dispatch this document")
+            # S3, S9: no dispatch needed (outgoing external)
+            elif scenario in [3, 9]:
+                return Response({'error': 'External outgoing documents do not need dispatching'}, status=status.HTTP_400_BAD_REQUEST)
+            # S2, S5, S7, S10, S13: no dispatch step
+            elif scenario in [2, 5, 7, 10, 13]:
+                return Response({'error': 'This scenario does not have a dispatch step'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Direction permission check (only S1)
+        if new_status == 'DIRECTED':
+            if scenario != 1:
+                return Response({'error': 'Only Scenario 1 documents require CEO direction'}, status=status.HTTP_400_BAD_REQUEST)
+            if profile.role not in ['CEO_SECRETARY', 'SUPER_ADMIN']:
+                raise PermissionDenied("Only CEO Secretary can direct documents")
+        
         old_status = document.status
         document.status = new_status
         document.save()
@@ -169,7 +234,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def acknowledge(self, request, pk=None):
-        """Allow CxO Secretary to acknowledge they have seen an outgoing letter"""
+        """Allow CxO Secretary to mark as seen (acknowledge) a CC'd document"""
         document = self.get_object()
         user = request.user
         
@@ -178,10 +243,6 @@ class DocumentViewSet(viewsets.ModelViewSet):
             UserProfile.objects.create(user=user)
         
         profile = user.profile
-        
-        # Validate: must be outgoing letter
-        if document.doc_type != 'OUTGOING':
-            return Response({'error': 'Only outgoing letters can be acknowledged'}, status=status.HTTP_400_BAD_REQUEST)
         
         # Validate: user must be CxO Secretary
         if profile.role != 'CXO_SECRETARY':
@@ -213,11 +274,171 @@ class DocumentViewSet(viewsets.ModelViewSet):
             document=document,
             actor=user,
             action='acknowledged',
-            notes=f'{user_dept.code} acknowledged receipt'
+            notes=f'{user_dept.code} marked as seen'
         )
         
         return Response({
             'message': 'Document acknowledged successfully',
             'department': user_dept.name,
             'acknowledged_at': ack.acknowledged_at
+        }, status=status.HTTP_201_CREATED)
+
+    def _get_scenario(self, document):
+        """Determine scenario number for a document"""
+        dt = document.doc_type
+        src = document.source
+        is_ceo_level = document.department is None
+        if dt == 'INCOMING' and src == 'EXTERNAL' and is_ceo_level: return 1
+        if dt == 'INCOMING' and src == 'INTERNAL' and is_ceo_level: return 2
+        if dt == 'OUTGOING' and src == 'EXTERNAL' and is_ceo_level: return 3
+        if dt == 'OUTGOING' and src == 'INTERNAL' and is_ceo_level: return 4
+        if dt == 'MEMO' and src == 'INTERNAL' and is_ceo_level: return 5
+        if dt == 'MEMO' and src == 'EXTERNAL' and is_ceo_level: return 6
+        if dt == 'INCOMING' and src == 'EXTERNAL' and not is_ceo_level: return 7
+        if dt == 'INCOMING' and src == 'INTERNAL' and not is_ceo_level: return 8
+        if dt == 'OUTGOING' and src == 'EXTERNAL' and not is_ceo_level: return 9
+        if dt == 'OUTGOING' and src == 'INTERNAL' and not is_ceo_level:
+            return 11 if document.directed_offices.exists() else 10
+        if dt == 'MEMO' and src == 'INTERNAL' and not is_ceo_level: return 12
+        if dt == 'MEMO' and src == 'EXTERNAL' and not is_ceo_level: return 13
+        return 0
+
+    @action(detail=True, methods=['post'])
+    def mark_received(self, request, pk=None):
+        """Allow appropriate user to mark a document as received"""
+        document = self.get_object()
+        user = request.user
+        
+        # Ensure profile exists
+        if not hasattr(user, 'profile'):
+            UserProfile.objects.create(user=user)
+        
+        profile = user.profile
+        scenario = self._get_scenario(document)
+        
+        # Scenarios that don't need receipt
+        no_receipt_scenarios = [3, 9]
+        if scenario in no_receipt_scenarios or scenario == 0:
+            return Response({'error': 'This document type does not require receipt confirmation'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate: document must be dispatched or registered (some scenarios skip dispatch)
+        if document.status not in ['DISPATCHED', 'REGISTERED']:
+            return Response({'error': 'Document is not in a receivable status'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Scenarios where CEO Secretary receives (S2, S5, S10, S13)
+        ceo_receives = scenario in [2, 5, 10, 13]
+        
+        if ceo_receives:
+            if profile.role not in ['CEO_SECRETARY', 'SUPER_ADMIN']:
+                raise PermissionDenied("Only CEO Secretary can receive this document")
+            # Check not already received
+            if document.receipts.filter(received_by__profile__role='CEO_SECRETARY').exists():
+                return Response({'error': 'CEO Office has already received this document'}, status=status.HTTP_400_BAD_REQUEST)
+            # Determine department for receipt: use document's dept, user's dept, or first available dept
+            receipt_dept = document.department or profile.department
+            if not receipt_dept:
+                # For S2/S5 CEO-level docs where CEO Secretary has no dept, use the sending office
+                first_co = document.co_offices.first()
+                if first_co:
+                    receipt_dept = first_co
+                else:
+                    # Fallback: create without department is not possible due to FK constraint
+                    # Use any department as a placeholder
+                    receipt_dept = Department.objects.first()
+            receipt = DocumentReceipt.objects.create(
+                document=document,
+                department=receipt_dept,
+                received_by=user
+            )
+            Activity.objects.create(
+                document=document, actor=user, action='received',
+                notes='CEO Office marked as received'
+            )
+            document.status = 'RECEIVED'
+            document.save()
+            Activity.objects.create(
+                document=document, actor=user, action='status_changed',
+                notes='Status changed to RECEIVED'
+            )
+            return Response({
+                'message': 'Document marked as received',
+                'department': 'CEO Office',
+                'received_at': receipt.received_at,
+                'all_received': True
+            }, status=status.HTTP_201_CREATED)
+        
+        # Scenario 7: self-receive by destination CxO secretary
+        if scenario == 7:
+            if profile.role != 'CXO_SECRETARY':
+                raise PermissionDenied("Only CxO Secretary can receive this document")
+            if not profile.department or profile.department_id != document.department_id:
+                raise PermissionDenied("Only the destination CxO office can receive this document")
+            if document.receipts.filter(department_id=profile.department_id).exists():
+                return Response({'error': 'Your department has already received this document'}, status=status.HTTP_400_BAD_REQUEST)
+            receipt = DocumentReceipt.objects.create(
+                document=document,
+                department=profile.department,
+                received_by=user
+            )
+            Activity.objects.create(
+                document=document, actor=user, action='received',
+                notes=f'{profile.department.code} marked as received'
+            )
+            document.status = 'RECEIVED'
+            document.save()
+            Activity.objects.create(
+                document=document, actor=user, action='status_changed',
+                notes='Status changed to RECEIVED'
+            )
+            return Response({
+                'message': 'Document marked as received',
+                'department': profile.department.name,
+                'received_at': receipt.received_at,
+                'all_received': True
+            }, status=status.HTTP_201_CREATED)
+        
+        # All other scenarios: CxO Secretary receives via directed_offices
+        if profile.role != 'CXO_SECRETARY':
+            raise PermissionDenied("Only CxO Secretaries can mark documents as received")
+        
+        if not profile.department:
+            return Response({'error': 'Your account is not associated with a department'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user_dept = profile.department
+        
+        if not document.directed_offices.filter(id=user_dept.id).exists():
+            raise PermissionDenied("Your department is not a recipient of this document")
+        
+        if DocumentReceipt.objects.filter(document=document, department=user_dept).exists():
+            return Response({'error': 'Your department has already marked this document as received'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        receipt = DocumentReceipt.objects.create(
+            document=document,
+            department=user_dept,
+            received_by=user
+        )
+        
+        Activity.objects.create(
+            document=document, actor=user, action='received',
+            notes=f'{user_dept.code} marked as received'
+        )
+        
+        # Check if all directed offices have received
+        all_received = not document.directed_offices.exclude(
+            id__in=document.receipts.values_list('department_id', flat=True)
+        ).exists()
+        
+        if all_received:
+            document.status = 'RECEIVED'
+            document.save()
+            Activity.objects.create(
+                document=document, actor=user, action='status_changed',
+                notes='All offices received - status changed to RECEIVED'
+            )
+        
+        return Response({
+            'message': 'Document marked as received',
+            'department': user_dept.name,
+            'received_at': receipt.received_at,
+            'all_received': all_received
         }, status=status.HTTP_201_CREATED)

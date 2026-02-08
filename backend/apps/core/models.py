@@ -76,8 +76,8 @@ class UserProfile(models.Model):
 
     @property
     def can_create_documents(self):
-        """Super Admin and CEO Secretary can create documents"""
-        return self.role in ['SUPER_ADMIN', 'CEO_SECRETARY']
+        """Super Admin, CEO Secretary, and CxO Secretary can create documents"""
+        return self.role in ['SUPER_ADMIN', 'CEO_SECRETARY', 'CXO_SECRETARY']
 
     @property
     def can_edit_all_documents(self):

@@ -77,11 +77,16 @@ function Sidebar() {
           <div className="text-xs mt-1 px-2 py-0.5 rounded-full bg-[#0B3C5D]/10 text-[#0B3C5D] dark:bg-[#F0B429]/20 dark:text-[#F0B429] inline-block">
             {user.profile.role_display}
           </div>
+          {user.profile.department && (
+            <div className="text-xs mt-1 text-slate-500 dark:text-slate-400">{user.profile.department.code} - {user.profile.department.name}</div>
+          )}
         </div>
       )}
       <nav className="flex-1 p-3 space-y-1">
         {navItems.map(({ to, icon: Icon, label }) => {
-          const active = location.pathname === to
+          const active = to === '/documents' 
+            ? location.pathname === '/documents' || location.pathname.startsWith('/documents/')
+            : location.pathname === to
           return (
             <Link
               key={to}

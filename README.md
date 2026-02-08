@@ -2,202 +2,168 @@
 
 A LAN-only, offline-capable tracking system for Ethiopian Electric Utility (EEU) letters and memos.
 
-- Frontend: React (Vite, TailwindCSS, i18next)
-- Backend: Django 5 + Django REST Framework + JWT (SimpleJWT)
-- Database: PostgreSQL
-- Deployment target: Windows Server behind IIS reverse proxy (offline LAN)
+- **Frontend**: React 18 (Vite, TailwindCSS, i18next, Lucide icons)
+- **Backend**: Django 5 + Django REST Framework + JWT (SimpleJWT)
+- **Database**: PostgreSQL
+- **Deployment target**: Windows Server behind IIS reverse proxy (offline LAN)
 
 ---
 
-## Current Status (What’s Implemented)
+## Features
 
-- Authentication
-  - JWT auth endpoints (`/api/auth/token/`, `/api/auth/token/refresh/`)
-  - Frontend login + token storage/refresh
-- Core domain
-  - Departments (CRUD via admin)
-  - Document model with numbering: `prefix/sequence/EC` (e.g., `7.23/234/18 EC`)
-  - NumberingRule (per department + doc_type → prefix)
-  - NumberSequence (per department + doc_type + EC year → sequence)
-  - Attachments (no in-memory size limit; streamed to disk)
-  - Activities (basic create/attachment activity logs)
-- Document fields (per template)
-  - `company_office_name`
-  - `co_offices` (Many-to-Many Departments)
-  - `directed_offices` (Many-to-Many Departments)
-  - Dates: `received_date`, `written_date`, `memo_date`, `ceo_directed_date`, `due_date`
-  - `ceo_note`, `signature_name`
-  - Validation by `doc_type` (INCOMING, OUTGOING, MEMO)
-- API
-  - `/api/core/departments/`
-  - `/api/documents/documents/` (list/detail/create)
-  - `/api/documents/documents/{id}/attachments/` (POST files)
-  - Query params for filter/search: `q`, `doc_type`, `status`, `department`
-- Frontend
-  - Pages: Login, Dashboard, Documents List, New Document, Document Detail
-  - Internationalization (English/Amharic)
-  - Header with title + left-side vertical sidebar navigation
-  - New Document form supports multi-select for CO office(s) and Directed office(s)
-- File handling / streaming
-  - `FILE_UPLOAD_MAX_MEMORY_SIZE=0` (stream uploads to disk)
-  - `MEDIA_ROOT` configured
-- Windows-friendly dependencies
-  - psycopg v3 binary wheels
-  - Pillow removed (not needed)
+### 13 Document Workflow Scenarios
+All 13 scenarios are fully implemented with role-based permissions:
 
----
+| # | Type | Source | Flow | Key Action |
+|---|------|--------|------|------------|
+| S1 | Incoming Letter | External | Outside → CEO → CxO | CEO Direction → Dispatch → Receive |
+| S2 | Incoming Letter | Internal | CxO → CEO | Register → Receive |
+| S3 | Outgoing Letter | External | CEO → Outside | Register only |
+| S4 | Outgoing Letter | Internal | CEO → CxO | Dispatch → Receive |
+| S5 | Memo | Internal | CxO → CEO | Register → Receive |
+| S6 | Memo | External | CEO → CxO | Dispatch → Receive |
+| S7 | Incoming Letter | External | Outside → CxO | Register → Receive |
+| S8 | Incoming Letter | Internal | CxO → CxO | Dispatch → Receive |
+| S9 | Outgoing Letter | External | CxO → Outside | Register only |
+| S10 | Outgoing Letter | Internal | CxO → CEO | Register → Receive |
+| S11 | Outgoing Letter | Internal | CxO → CxO | Dispatch → Receive |
+| S12 | Memo | Internal | CxO → CxO | Dispatch → Receive |
+| S13 | Memo | External | CxO → CEO | Register → Receive |
 
-## Data Model (Overview)
+### Roles & Permissions
+| Role | Create Docs | View | Edit | User Mgmt |
+|------|------------|------|------|-----------|
+| SUPER_ADMIN | All | All | All | Yes |
+| CEO_SECRETARY | All | All | All | No |
+| CXO_SECRETARY | Own dept | Own dept | Own dept | No |
+| CEO | No | All | No | No |
+| CXO | No | Own dept | No | No |
 
-- Department(code, name, parent)
-- NumberingRule(department, doc_type, prefix, active)
-- NumberSequence(department, doc_type, ec_year, current_value)
-- Document(
-  - doc_type, department, assigned_to, ref_no, prefix, sequence, ec_year,
-  - subject, summary,
-  - company_office_name,
-  - co_offices [M2M Department],
-  - directed_offices [M2M Department],
-  - sender_name, receiver_name,
-  - status, priority, confidentiality, registered_at,
-  - received_date, written_date, memo_date, ceo_directed_date, due_date,
-  - ceo_note, signature_name,
-  - created_by
-)
-- Attachment(document, file, original_name, size, uploaded_by, uploaded_at)
-- Activity(document, actor, action, notes, created_at)
+### Status Workflow
+`REGISTERED → DIRECTED → DISPATCHED → RECEIVED → IN_PROGRESS → RESPONDED → CLOSED`
 
-Numbering: `ref_no = f"{prefix}/{sequence}/{ec_year:0>2} EC"`
+Invalid transitions are blocked by a backend status transition matrix.
+
+### Other Features
+- **JWT Authentication** with token refresh and auto-redirect on expiry
+- **Dark Mode** with persistent toggle
+- **Internationalization** (English / Amharic)
+- **File Attachments** with streaming upload (no memory limit)
+- **Activity Log** tracking all document actions
+- **Receipt Tracking** per department with pending/completed status
+- **CC Acknowledgment** (Mark as Seen) for CC'd offices
+- **Priority** (Low/Normal/High/Urgent) and **Confidentiality** (Regular/Confidential/Secret)
+- **User Management** (SUPER_ADMIN only): create, edit, reset password, delete
+- **Settings**: dark mode, fullscreen, change password, account info
 
 ---
 
-## Backend: Setup & Run (Windows)
+## Quick Start (Development)
 
-1. Prerequisites
-   - Python 3.11+
-   - PostgreSQL 14+ (local, offline)
+### Backend
+```bash
+cd backend
+pip install -r requirements.txt
+copy .env.example .env          # Edit with your DB credentials
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
+```
 
-2. Install deps
-   - `pip install -r backend/requirements.txt`
-
-3. Configure environment
-   - Copy `backend/.env.example` to `backend/.env` and set values:
-     - `DB_NAME=eeu_tracker`
-     - `DB_USER=postgres`
-     - `DB_PASSWORD=...`
-     - `DB_HOST=localhost`
-     - `DB_PORT=5432`
-     - `MEDIA_ROOT=C:/eeu_tracker_media` (example path)
-     - `SECRET_KEY=...`
-
-4. Database & migrations
-   - Create the database in PostgreSQL.
-   - Run:
-     - `python backend/manage.py makemigrations apps.core apps.documents`
-     - `python backend/manage.py migrate`
-   - Create superuser:
-     - `python backend/manage.py createsuperuser`
-
-5. Run dev server
-   - `python backend/manage.py runserver 0.0.0.0:8000`
-
-6. Configure numbering rules (admin)
-   - Visit `/admin`, add `NumberingRule` for each (department, doc_type) with the desired prefix (e.g., `7.23`).
-
-Notes:
-- Backend accepts both single `co_office`/`directed_office` and multi `co_offices[]`/`directed_offices[]` when creating documents. Prefer multi going forward.
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Open http://localhost:5173
 
 ---
 
-## Frontend: Setup & Run
+## Production Deployment
 
-1. Prerequisites
-   - Node 18+
+### Backend
+```bash
+cd backend
+copy .env.example .env
+# Edit .env: set DEBUG=False, SECRET_KEY, ALLOWED_HOSTS, CORS_ALLOWED_ORIGINS, DB credentials
 
-2. Install deps
-   - `cd frontend`
-   - `npm install`
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py collectstatic --noinput
+python manage.py createsuperuser
 
-3. Configure API base URL
-   - Create `frontend/.env.local`:
-     - `VITE_API_BASE_URL=http://localhost:8000`
+# Run with Waitress (Windows-compatible production server)
+python run_production.py
+```
 
-4. Run dev
-   - `npm run dev`
-   - Open http://localhost:5173
+### Frontend
+```bash
+cd frontend
+# Edit .env.production: set VITE_API_BASE_URL (empty if same domain)
+npm install
+npm run build
+# Serve dist/ folder via IIS or any static file server
+```
 
-5. Build for production
-   - `npm run build` (outputs to `frontend/dist`)
+### IIS Reverse Proxy Setup
+1. Install IIS with ARR (Application Request Routing) and URL Rewrite
+2. Create a site pointing to `frontend/dist`
+3. Add URL Rewrite rules:
+   - `/api/*` → `http://127.0.0.1:8000/api/{R:1}`
+   - `/admin/*` → `http://127.0.0.1:8000/admin/{R:1}`
+   - `/media/*` → `http://127.0.0.1:8000/media/{R:1}`
+4. Add a catch-all rewrite for SPA: all other routes → `index.html`
+5. Increase request size limits for file uploads
 
----
-
-## Deployment (Windows Server + IIS, Offline LAN)
-
-- Frontend
-  - Serve `frontend/dist` via IIS as a static site.
-- Backend
-  - Create Python venv; install the backend requirements.
-  - Set environment variables (same as dev). Ensure `MEDIA_ROOT` directory exists with write permission.
-  - Run Django behind IIS using reverse proxy (ARR + URL Rewrite):
-    - Backend service (example): `waitress-serve --port=8000 eeu_tracker.wsgi:application`
-    - Proxy `/api/*` and `/admin/*` from IIS to `http://127.0.0.1:8000`.
-  - Increase IIS max request length to allow large attachments (Request Filtering + web.config settings).
-- Database
-  - Local PostgreSQL instance (offline). Configure backups.
-
----
-
-## Known Gaps / Limitations
-
-- New Document form still uses single-select for CO/Directed office in the UI (backend supports multi).
-- No role-based permissions yet (departmental visibility/ownership not enforced).
-- No printing/export templates.
-- No scheduled reminders/notifications.
-- Minimal error toasts and form-level error display (improved but basic).
-
----
-
-## Suggested Next Steps
-
-1. Workflows & Assignments
-   - Add assignment, due dates, reminders (email or local notifications), and SLA statuses.
-
-2. RBAC & Audit
-   - Roles: admin, registrar, department user.
-   - Department-based visibility for documents.
-   - Detailed activity/audit logs.
-
-3. Search & Reporting
-   - Add more filters (date ranges, office filters), pagination, sorting.
-   - Export CSV, print-friendly PDFs, and summarized reports by department/date.
-
-4. Deployment Hardening
-   - Production settings split (DEBUG=false, secure cookies, logging).
-   - IIS reverse proxy rules, upload size limits, and health checks.
-   - Backup/restore scripts for PostgreSQL and media.
-
-5. Data Migration (if needed)
-   - If any legacy records used single `co_office`/`directed_office`, create a one-time data migration to copy them into M2M fields.
+### Environment Variables (Backend)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SECRET_KEY` | unsafe-dev-key | Django secret key (change in production!) |
+| `DEBUG` | True | Set to False in production |
+| `ALLOWED_HOSTS` | localhost,127.0.0.1 | Comma-separated hostnames |
+| `DB_NAME` | eeu_tracker | PostgreSQL database name |
+| `DB_USER` | postgres | Database user |
+| `DB_PASSWORD` | - | Database password |
+| `DB_HOST` | localhost | Database host |
+| `DB_PORT` | 5432 | Database port |
+| `CORS_ALLOWED_ORIGINS` | - | Frontend URL(s), e.g. https://your-domain.com |
+| `CSRF_TRUSTED_ORIGINS` | - | Same as CORS origins |
+| `MEDIA_ROOT` | ./media | Attachment storage path |
+| `SECURE_SSL_REDIRECT` | False | Set True if behind HTTPS |
 
 ---
 
-## Changelog (Keep Updating)
-
-- 2026-02-05
-  - Frontend: DocumentForm now uses multi-select inputs for `co_offices` and `directed_offices` and submits arrays via FormData.
-  - Switched `co_offices`/`directed_offices` to Many-to-Many in backend; serializers accept both arrays and single values.
-  - Sidebar layout added (left vertical), header keeps title on the left.
-  - Improved frontend form error display from backend responses.
-  - Switched to psycopg v3 binary wheels; removed Pillow dependency.
-  - Implemented numbering rules/sequences per department + doc type with EC year.
-  - Added template fields (company/office names, dates, CEO note, signature).
+## Project Structure
+```
+windsurf-project/
+├── backend/
+│   ├── apps/
+│   │   ├── core/          # Users, Departments, Profiles
+│   │   └── documents/     # Documents, Attachments, Activities, Receipts
+│   ├── eeu_tracker/       # Django settings, URLs, WSGI
+│   ├── manage.py
+│   ├── run_production.py  # Waitress production server
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── components/    # MultiSelect
+│   │   ├── contexts/      # Auth, Settings, Toast
+│   │   ├── pages/         # Dashboard, Documents, Settings, Users
+│   │   ├── store/         # JWT token management
+│   │   ├── api.js         # Axios instance with JWT interceptors
+│   │   ├── i18n.js        # English + Amharic translations
+│   │   └── App.jsx        # Routes, NavBar, Sidebar
+│   ├── Data/              # Department JSON (en/am)
+│   └── package.json
+└── README.md
+```
 
 ---
 
-## Maintenance
-
-This README is a living document. As features are added/changed, update:
-- Current Status
-- Known Gaps
-- Suggested Next Steps
-- Changelog (date + bullet of changes)
+## Future Enhancements
+- Printing/export templates (PDF)
+- Date range filters and pagination
+- Email/notification reminders for due dates
+- Dashboard charts and reporting
+- Backup/restore scripts for PostgreSQL and media

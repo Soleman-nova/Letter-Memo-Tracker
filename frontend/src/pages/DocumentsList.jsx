@@ -6,12 +6,16 @@ import MultiSelect from '../components/MultiSelect'
 import departmentsEn from '../../Data/Department-en.json'
 import departmentsAm from '../../Data/Department-am.json'
 import { FileText, Search, FilePlus, Filter } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function DocumentsList() {
   const { t, i18n } = useTranslation()
+  const { canCreateDocuments } = useAuth()
   const [items, setItems] = useState([])
   const [departments, setDepartments] = useState([])
   const [q, setQ] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [coFilter, setCoFilter] = useState([])
   const [dirFilter, setDirFilter] = useState([])
 
@@ -19,6 +23,8 @@ export default function DocumentsList() {
     try {
       const params = {}
       if (q) params.q = q
+      if (typeFilter) params.doc_type = typeFilter
+      if (statusFilter) params.status = statusFilter
       // Only add filters if they have valid values (not undefined/empty)
       const validCoFilter = coFilter.filter(v => v !== undefined && v !== null && v !== '')
       const validDirFilter = dirFilter.filter(v => v !== undefined && v !== null && v !== '')
@@ -34,8 +40,12 @@ export default function DocumentsList() {
   useEffect(() => {
     // Fetch departments from backend
     api.get('/api/core/departments/').then(r => setDepartments(r.data))
-    load()
   }, [])
+
+  // Auto-reload when filters change
+  useEffect(() => {
+    load()
+  }, [typeFilter, statusFilter])
 
   // Use backend departments with i18n labels from JSON
   const deptData = i18n.language === 'am' ? departmentsAm : departmentsEn
@@ -59,10 +69,12 @@ export default function DocumentsList() {
             <div className="text-sm text-slate-500 dark:text-slate-400">Manage all your documents</div>
           </div>
         </div>
-        <Link to="/documents/new" className="inline-flex items-center gap-2 rounded-lg bg-[#0B3C5D] dark:bg-[#F0B429] text-white dark:text-[#0B3C5D] px-4 py-2.5 font-medium shadow-sm hover:bg-[#09324F] dark:hover:bg-[#D9A020]">
-          <FilePlus className="w-4 h-4" />
-          {t('new_document')}
-        </Link>
+        {canCreateDocuments && (
+          <Link to="/documents/new" className="inline-flex items-center gap-2 rounded-lg bg-[#0B3C5D] dark:bg-[#F0B429] text-white dark:text-[#0B3C5D] px-4 py-2.5 font-medium shadow-sm hover:bg-[#09324F] dark:hover:bg-[#D9A020]">
+            <FilePlus className="w-4 h-4" />
+            {t('new_document')}
+          </Link>
+        )}
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-4 space-y-3">
@@ -82,6 +94,22 @@ export default function DocumentsList() {
               />
             </div>
           </div>
+          <select className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 dark:text-white text-sm" value={typeFilter} onChange={(e)=>{setTypeFilter(e.target.value)}}>
+            <option value="">All Types</option>
+            <option value="INCOMING">Incoming</option>
+            <option value="OUTGOING">Outgoing</option>
+            <option value="MEMO">Memo</option>
+          </select>
+          <select className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 dark:text-white text-sm" value={statusFilter} onChange={(e)=>{setStatusFilter(e.target.value)}}>
+            <option value="">All Statuses</option>
+            <option value="REGISTERED">Registered</option>
+            <option value="DIRECTED">Directed</option>
+            <option value="DISPATCHED">Dispatched</option>
+            <option value="RECEIVED">Received</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="RESPONDED">Responded</option>
+            <option value="CLOSED">Closed</option>
+          </select>
           <button className="inline-flex items-center gap-2 bg-[#0B3C5D] dark:bg-[#F0B429] text-white dark:text-[#0B3C5D] rounded-lg px-4 py-2 font-medium hover:bg-[#09324F] dark:hover:bg-[#D9A020]" onClick={load}>
             <Search className="w-4 h-4" />
             {t('search')}
@@ -105,21 +133,45 @@ export default function DocumentsList() {
             <tr className="text-left border-b dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
               <th className="py-3 px-4 dark:text-slate-300">Ref</th>
               <th className="px-4 dark:text-slate-300">Type</th>
+              <th className="px-4 dark:text-slate-300">Source</th>
+              <th className="px-4 dark:text-slate-300">Office</th>
               <th className="px-4 dark:text-slate-300">{t('subject')}</th>
               <th className="px-4 dark:text-slate-300">Status</th>
             </tr>
           </thead>
           <tbody>
-            {items.length ? items.map((d)=> (
+            {items.length ? items.map((d)=> {
+              const statusColors = {
+                REGISTERED: 'bg-slate-100 text-slate-700 dark:bg-slate-600 dark:text-slate-200',
+                DIRECTED: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+                DISPATCHED: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
+                RECEIVED: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+                IN_PROGRESS: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+                RESPONDED: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300',
+                CLOSED: 'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-200',
+              }
+              const typeColors = {
+                INCOMING: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+                OUTGOING: 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+                MEMO: 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
+              }
+              return (
               <tr key={d.id} className="border-b dark:border-slate-700 hover:bg-slate-50/60 dark:hover:bg-slate-700/50">
-                <td className="py-3 px-4"><Link className="text-blue-700 dark:text-blue-400 hover:underline" to={`/documents/${d.id}`}>{d.ref_no}</Link></td>
-                <td className="px-4 dark:text-slate-300">{d.doc_type}</td>
-                <td className="px-4 dark:text-slate-300">{d.subject}</td>
-                <td className="px-4 dark:text-slate-300">{d.status}</td>
+                <td className="py-3 px-4">
+                  <Link className="text-blue-700 dark:text-blue-400 hover:underline font-medium" to={`/documents/${d.id}`}>{d.ref_no}</Link>
+                  {d.priority === 'URGENT' && <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">URGENT</span>}
+                  {d.priority === 'HIGH' && <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">HIGH</span>}
+                </td>
+                <td className="px-4"><span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${typeColors[d.doc_type] || ''}`}>{d.doc_type}</span></td>
+                <td className="px-4 dark:text-slate-300 text-xs">{d.source === 'INTERNAL' ? 'Internal' : 'External'}</td>
+                <td className="px-4 dark:text-slate-300 text-xs">{d.department_name || 'CEO Office'}</td>
+                <td className="px-4 dark:text-slate-300 max-w-xs truncate">{d.subject}</td>
+                <td className="px-4"><span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusColors[d.status] || ''}`}>{d.status}</span></td>
               </tr>
-            )) : (
+              )
+            }) : (
               <tr>
-                <td colSpan={4} className="py-8 text-center text-slate-500 dark:text-slate-400">No documents found</td>
+                <td colSpan={6} className="py-8 text-center text-slate-500 dark:text-slate-400">No documents found</td>
               </tr>
             )}
           </tbody>

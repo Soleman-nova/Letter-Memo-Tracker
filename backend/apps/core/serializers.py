@@ -72,7 +72,8 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'first_name', 'last_name', 'password', 'role', 'department']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'password', 'role', 'department']
+        read_only_fields = ['id']
 
     def validate(self, attrs):
         role = attrs.get('role')
