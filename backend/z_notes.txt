@@ -1,6 +1,6 @@
 SuperUser
 Username: admin
-Password: Selamu@12345
+Password: admin123
 
 
 PostgreSQL

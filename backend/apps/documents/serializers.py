@@ -86,7 +86,7 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Document
-        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'status', 'priority', 'confidentiality', 'registered_at', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'ceo_note', 'signature_name', 'company_office_name', 'co_offices', 'co_office_names', 'co_office_name', 'directed_offices', 'directed_office_names', 'directed_office_name', 'department', 'department_name', 'department_code', 'assigned_to', 'prefix', 'sequence', 'ec_year', 'attachments', 'activities', 'acknowledgments', 'pending_acknowledgments', 'receipts', 'pending_receipts', 'user_can_acknowledge', 'user_can_receive', 'scenario']
+        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'status', 'priority', 'confidentiality', 'registered_at', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'ceo_note', 'signature_name', 'company_office_name', 'co_offices', 'co_office_names', 'co_office_name', 'directed_offices', 'directed_office_names', 'directed_office_name', 'department', 'department_name', 'department_code', 'assigned_to', 'prefix', 'sequence', 'ec_year', 'requires_ceo_direction', 'attachments', 'activities', 'acknowledgments', 'pending_acknowledgments', 'receipts', 'pending_receipts', 'user_can_acknowledge', 'user_can_receive', 'scenario']
 
     def get_scenario(self, obj):
         return self._get_scenario(obj)
@@ -131,6 +131,9 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
         if dt == 'OUTGOING' and src == 'EXTERNAL' and not is_ceo_level:
             return 9
         if dt == 'OUTGOING' and src == 'INTERNAL' and not is_ceo_level:
+            # S14: CxO-to-CEO with CEO direction
+            if getattr(obj, 'requires_ceo_direction', False):
+                return 14
             # Could be S10 (CxO-to-CEO) or S11 (CxO-to-CxO)
             # S10: directed_offices is empty (goes to CEO)
             # S11: directed_offices has CxO offices
@@ -145,15 +148,15 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
 
     def _needs_receipt(self, scenario):
         """Scenarios that require receipt tracking"""
-        return scenario in [1, 2, 4, 5, 6, 7, 8, 10, 11, 12, 13]
+        return scenario in [1, 2, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14]
 
     def _needs_acknowledgment(self, scenario):
         """Scenarios that require CC acknowledgment (mark as seen)"""
-        return scenario in [1, 4, 6, 8, 10, 11, 12, 13]
+        return scenario in [1, 2, 4, 6, 8, 10, 11, 12, 13, 14]
 
     def _receipt_by_ceo_secretary(self, scenario):
         """Scenarios where CEO Secretary is the receiver"""
-        return scenario in [2, 5, 10, 13]
+        return scenario in [5, 10, 13]
 
     def get_pending_acknowledgments(self, obj):
         """Returns list of CC'd offices that haven't acknowledged yet"""
@@ -260,7 +263,7 @@ class DocumentCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Document
-        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'priority', 'confidentiality', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'company_office_name', 'co_offices', 'co_office', 'directed_offices', 'directed_office', 'ceo_note', 'signature_name', 'department', 'ec_year', 'attachments', 'status']
+        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'priority', 'confidentiality', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'company_office_name', 'co_offices', 'co_office', 'directed_offices', 'directed_office', 'ceo_note', 'signature_name', 'department', 'ec_year', 'requires_ceo_direction', 'attachments', 'status']
         read_only_fields = ['id', 'status']
 
     def create(self, validated_data):
@@ -373,7 +376,7 @@ class DocumentCreateSerializer(serializers.ModelSerializer):
                 if not attrs.get('company_office_name'):
                     raise serializers.ValidationError({'company_office_name': 'Company/Agency name is required'})
             elif dt == 'OUTGOING' and source == 'INTERNAL':
-                # S10 or S11
+                # S10, S11, or S14
                 if not attrs.get('written_date'):
                     raise serializers.ValidationError({'written_date': 'Written date is required'})
             elif dt == 'MEMO' and source == 'INTERNAL':

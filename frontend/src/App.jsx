@@ -63,8 +63,8 @@ function Sidebar() {
     { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), show: true },
     { to: '/documents', icon: FileText, label: t('documents'), show: true },
     { to: '/documents/new', icon: FilePlus, label: t('new_document'), show: canCreateDocuments },
-    { to: '/users', icon: Users, label: 'User Management', show: canManageUsers },
-    { to: '/settings', icon: SettingsIcon, label: 'Settings', show: true },
+    { to: '/users', icon: Users, label: t('user_management'), show: canManageUsers },
+    { to: '/settings', icon: SettingsIcon, label: t('settings'), show: true },
   ].filter(item => item.show)
 
   return (
@@ -72,7 +72,7 @@ function Sidebar() {
       {/* User role badge */}
       {user?.profile && (
         <div className="p-3 border-b border-slate-200 dark:border-slate-700">
-          <div className="text-xs text-slate-500 dark:text-slate-400">Logged in as</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">{t('logged_in_as')}</div>
           <div className="font-medium text-sm text-slate-700 dark:text-slate-200">{user.first_name || user.username}</div>
           <div className="text-xs mt-1 px-2 py-0.5 rounded-full bg-[#0B3C5D]/10 text-[#0B3C5D] dark:bg-[#F0B429]/20 dark:text-[#F0B429] inline-block">
             {user.profile.role_display}
@@ -85,8 +85,8 @@ function Sidebar() {
       <nav className="flex-1 p-3 space-y-1">
         {navItems.map(({ to, icon: Icon, label }) => {
           const active = to === '/documents' 
-            ? location.pathname === '/documents' || location.pathname.startsWith('/documents/')
-            : location.pathname === to
+            ? location.pathname === '/documents' || (location.pathname.startsWith('/documents/') && location.pathname !== '/documents/new')
+            : location.pathname === to || (to !== '/documents' && location.pathname.startsWith(to + '/'))
           return (
             <Link
               key={to}

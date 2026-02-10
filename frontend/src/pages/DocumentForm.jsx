@@ -6,6 +6,8 @@ import MultiSelect from '../components/MultiSelect'
 import departmentsEn from '../../Data/Department-en.json'
 import departmentsAm from '../../Data/Department-am.json'
 import { FilePlus, Save, Paperclip, Edit } from 'lucide-react'
+import EthiopianDateInput from '../components/EthiopianDateInput'
+import EthDateDisplay from '../components/EthDateDisplay'
 import { useToast } from '../contexts/ToastContext'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -44,6 +46,7 @@ export default function DocumentForm() {
     signature_name: '',
     priority: 'NORMAL',
     confidentiality: 'REGULAR',
+    requires_ceo_direction: false,
   })
   const [files, setFiles] = useState([])
   const [saving, setSaving] = useState(false)
@@ -167,11 +170,11 @@ export default function DocumentForm() {
           {isEditMode ? <Edit className="w-5 h-5 text-white" /> : <FilePlus className="w-5 h-5 text-white dark:text-[#0B3C5D]" />}
         </div>
         <div>
-          <h1 className="text-2xl font-semibold dark:text-white">{isEditMode ? 'Add CEO Direction' : t('new_document')}</h1>
+          <h1 className="text-2xl font-semibold dark:text-white">{isEditMode ? t('add_ceo_direction') : t('new_document')}</h1>
           <div className="text-sm text-slate-500 dark:text-slate-400">
             {isEditMode 
               ? `Document: ${existingDoc?.ref_no || ''} - ${existingDoc?.subject || ''}` 
-              : 'Create and route a new document'}
+              : t('documents_subtitle')}
           </div>
         </div>
       </div>
@@ -180,37 +183,37 @@ export default function DocumentForm() {
       {isEditMode && !existingDoc && (
         <div className="p-8 text-center">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-[#0B3C5D] dark:border-slate-600 dark:border-t-[#F0B429]" />
-          <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">Loading document...</div>
+          <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">{t('loading_document')}</div>
         </div>
       )}
       {/* EDIT MODE: Show only CEO Direction fields */}
       {isEditMode && existingDoc && (
         <form onSubmit={submit} className="bg-white dark:bg-slate-800 rounded-xl shadow p-6 space-y-6">
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <div className="font-semibold mb-3 text-blue-900 dark:text-blue-300">📋 Document Summary (Read Only)</div>
+            <div className="font-semibold mb-3 text-blue-900 dark:text-blue-300">📋 {t('document_summary')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-              <div><span className="text-slate-500 dark:text-slate-400">Ref No:</span> <span className="font-medium dark:text-white">{existingDoc.ref_no}</span></div>
-              <div><span className="text-slate-500 dark:text-slate-400">Received:</span> <span className="font-medium dark:text-white">{existingDoc.received_date}</span></div>
-              <div className="md:col-span-2"><span className="text-slate-500 dark:text-slate-400">Subject:</span> <span className="font-medium dark:text-white">{existingDoc.subject}</span></div>
-              <div><span className="text-slate-500 dark:text-slate-400">From:</span> <span className="font-medium dark:text-white">{existingDoc.company_office_name}</span></div>
-              <div><span className="text-slate-500 dark:text-slate-400">Status:</span> <span className="font-medium dark:text-white">{existingDoc.status}</span></div>
+              <div><span className="text-slate-500 dark:text-slate-400">{t('ref_no')}:</span> <span className="font-medium dark:text-white">{existingDoc.ref_no}</span></div>
+              <div>
+                <span className="text-slate-500 dark:text-slate-400">{existingDoc.received_date ? t('received_date') : t('written_date')}:</span>{' '}
+                <span className="font-medium dark:text-white"><EthDateDisplay date={existingDoc.received_date || existingDoc.written_date} inline /></span>
+              </div>
+              <div className="md:col-span-2"><span className="text-slate-500 dark:text-slate-400">{t('subject')}:</span> <span className="font-medium dark:text-white">{existingDoc.subject}</span></div>
+              <div><span className="text-slate-500 dark:text-slate-400">{t('from')}:</span> <span className="font-medium dark:text-white">{existingDoc.company_office_name || existingDoc.co_office_names?.join(', ') || (existingDoc.department_name ? `${existingDoc.department_code} - ${existingDoc.department_name}` : null) || '-'}</span></div>
+              <div><span className="text-slate-500 dark:text-slate-400">{t('status')}:</span> <span className="font-medium dark:text-white">{existingDoc.status}</span></div>
             </div>
           </div>
           
           <div className="border border-green-200 dark:border-green-800 rounded-xl p-4 bg-green-50 dark:bg-green-900/20">
-            <div className="font-semibold mb-3 text-green-900 dark:text-green-300">✍️ CEO Direction (Step 2)</div>
+            <div className="font-semibold mb-3 text-green-900 dark:text-green-300">✍️ {t('ceo_direction_step')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EthiopianDateInput label={t('ceo_directed_date')} value={form.ceo_directed_date} onChange={(v)=>update('ceo_directed_date', v)} required />
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">CEO Directed Date <span className="text-red-500">*</span></label>
-                <input type="date" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.ceo_directed_date} onChange={(e)=>update('ceo_directed_date', e.target.value)} required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Direct To (CxO Offices) <span className="text-red-500">*</span></label>
-                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder="Select offices to direct to" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('direct_to_cxo')} <span className="text-red-500">*</span></label>
+                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1 dark:text-white">CEO Note</label>
-                <textarea className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" rows={3} value={form.ceo_note} onChange={(e)=>update('ceo_note', e.target.value)} placeholder="CEO's instructions or notes" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('ceo_note')}</label>
+                <textarea className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" rows={3} value={form.ceo_note} onChange={(e)=>update('ceo_note', e.target.value)} placeholder={t('ph_ceo_notes')} />
               </div>
             </div>
           </div>
@@ -218,10 +221,10 @@ export default function DocumentForm() {
           <div className="flex gap-3">
             <button disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-green-600 text-white px-4 py-2.5 font-medium shadow-sm hover:bg-green-700 disabled:opacity-70 disabled:cursor-not-allowed" type="submit">
               <Save className="w-4 h-4" />
-              Save & Mark as Directed
+              {t('save_mark_directed')}
             </button>
             <button type="button" onClick={() => navigate(`/documents/${id}`)} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2.5 font-medium shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </form>
@@ -232,33 +235,33 @@ export default function DocumentForm() {
       <form onSubmit={submit} className="bg-white dark:bg-slate-800 rounded-xl shadow p-6 space-y-6">
         {/* Primary Fields in Grid */}
         <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 border border-slate-200 dark:border-slate-600">
-          <div className="text-sm font-medium text-slate-600 dark:text-slate-300 mb-3">Document Information</div>
+          <div className="text-sm font-medium text-slate-600 dark:text-slate-300 mb-3">{t('document_info')}</div>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Reference No. <span className="text-red-500">*</span></label>
-              <input className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" value={form.ref_no} onChange={(e)=>update('ref_no', e.target.value)} placeholder="e.g., CEO/001/18 EC" required />
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('ref_no')} <span className="text-red-500">*</span></label>
+              <input className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" value={form.ref_no} onChange={(e)=>update('ref_no', e.target.value)} placeholder={t('ph_ref_no')} required />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('doc_type')}</label>
               <select className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" value={form.doc_type} onChange={(e)=>update('doc_type', e.target.value)}>
-                <option value="INCOMING">Incoming Letter</option>
-                <option value="OUTGOING">Outgoing Letter</option>
-                <option value="MEMO">Memo</option>
+                <option value="INCOMING">{t('incoming_letter')}</option>
+                <option value="OUTGOING">{t('outgoing_letter')}</option>
+                <option value="MEMO">{t('memo')}</option>
               </select>
             </div>
             {form.doc_type !== 'MEMO' && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Source</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('source')}</label>
                 <select className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" value={form.source} onChange={(e)=>update('source', e.target.value)}>
                   {isCeoLevel ? (
                     <>
-                      <option value="EXTERNAL">External (Outside Company)</option>
-                      <option value="INTERNAL">Internal (CxO Offices)</option>
+                      <option value="EXTERNAL">{t('external_outside')}</option>
+                      <option value="INTERNAL">{t('internal_cxo')}</option>
                     </>
                   ) : (
                     <>
-                      <option value="EXTERNAL">External (Outside Company)</option>
-                      <option value="INTERNAL">Internal (Between Offices)</option>
+                      <option value="EXTERNAL">{t('external_outside')}</option>
+                      <option value="INTERNAL">{t('internal_between')}</option>
                     </>
                   )}
                 </select>
@@ -266,17 +269,17 @@ export default function DocumentForm() {
             )}
             {form.doc_type === 'MEMO' && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Direction</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('direction')}</label>
                 <select className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" value={form.source} onChange={(e)=>update('source', e.target.value)}>
                   {isCeoLevel ? (
                     <>
-                      <option value="INTERNAL">Incoming (From CxO to CEO)</option>
-                      <option value="EXTERNAL">Outgoing (From CEO to CxO)</option>
+                      <option value="INTERNAL">{t('memo_incoming_ceo')}</option>
+                      <option value="EXTERNAL">{t('memo_outgoing_ceo')}</option>
                     </>
                   ) : (
                     <>
-                      <option value="INTERNAL">To Other CxO Offices</option>
-                      <option value="EXTERNAL">To CEO Office</option>
+                      <option value="INTERNAL">{t('memo_to_cxo')}</option>
+                      <option value="EXTERNAL">{t('memo_to_ceo')}</option>
                     </>
                   )}
                 </select>
@@ -284,7 +287,7 @@ export default function DocumentForm() {
             )}
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('ec_year')} <span className="text-red-500">*</span></label>
-              <input className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" value={form.ec_year} onChange={(e)=>update('ec_year', e.target.value)} placeholder="e.g., 18" required />
+              <input className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" value={form.ec_year} onChange={(e)=>update('ec_year', e.target.value)} placeholder={t('ph_ec_year')} required />
             </div>
           </div>
         </div>
@@ -295,35 +298,29 @@ export default function DocumentForm() {
         {/* Scenario 1: Incoming Letter from External (Outside Company) */}
         {form.doc_type === 'INCOMING' && form.source === 'EXTERNAL' && (
           <div className="border border-blue-200 dark:border-blue-800 rounded-xl p-4 bg-blue-50 dark:bg-blue-900/20">
-            <div className="font-semibold mb-3 text-blue-900 dark:text-blue-300">Scenario 1: External Incoming Letter (From Outside Company to CEO)</div>
+            <div className="font-semibold mb-3 text-blue-900 dark:text-blue-300">{t('scenario_1')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EthiopianDateInput label={t('received_date')} value={form.received_date} onChange={(v)=>update('received_date', v)} required />
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Received Date <span className="text-red-500">*</span></label>
-                <input type="date" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.received_date} onChange={(e)=>update('received_date', e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Company/Agency Name <span className="text-red-500">*</span></label>
-                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.company_office_name} onChange={(e)=>update('company_office_name', e.target.value)} placeholder="e.g., Ministry of Water" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('company_office_name')} <span className="text-red-500">*</span></label>
+                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.company_office_name} onChange={(e)=>update('company_office_name', e.target.value)} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.subject} onChange={(e)=>update('subject', e.target.value)} />
               </div>
+              <EthiopianDateInput label={t('ceo_directed_date')} value={form.ceo_directed_date} onChange={(v)=>update('ceo_directed_date', v)} />
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">CEO Directed Date</label>
-                <input type="date" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.ceo_directed_date} onChange={(e)=>update('ceo_directed_date', e.target.value)} />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('direct_to_cxo')}</label>
+                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Direct To (CxO Offices)</label>
-                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder="Select offices to direct to" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">CC (CxO Offices - Optional)</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder="Select offices to CC" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
+                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1 dark:text-white">CEO Note</label>
-                <textarea className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" rows={3} value={form.ceo_note} onChange={(e)=>update('ceo_note', e.target.value)} placeholder="CEO's instructions or notes" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('ceo_note')}</label>
+                <textarea className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" rows={3} value={form.ceo_note} onChange={(e)=>update('ceo_note', e.target.value)} placeholder={t('ph_ceo_notes')} />
               </div>
             </div>
           </div>
@@ -332,19 +329,29 @@ export default function DocumentForm() {
         {/* Scenario 2: Incoming Letter from Internal (From CxO Offices to CEO) */}
         {form.doc_type === 'INCOMING' && form.source === 'INTERNAL' && (
           <div className="border border-green-200 dark:border-green-800 rounded-xl p-4 bg-green-50 dark:bg-green-900/20">
-            <div className="font-semibold mb-3 text-green-900 dark:text-green-300">Scenario 2: Internal Incoming Letter (From CxO Office to CEO)</div>
+            <div className="font-semibold mb-3 text-green-900 dark:text-green-300">{t('scenario_2')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EthiopianDateInput label={t('received_date')} value={form.received_date} onChange={(v)=>update('received_date', v)} required />
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Received Date <span className="text-red-500">*</span></label>
-                <input type="date" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.received_date} onChange={(e)=>update('received_date', e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">From Office (CxO) <span className="text-red-500">*</span></label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder="Select originating CxO office" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('from_office_cxo')} <span className="text-red-500">*</span></label>
+                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_originating')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.subject} onChange={(e)=>update('subject', e.target.value)} />
+              </div>
+              <EthiopianDateInput label={t('ceo_directed_date')} value={form.ceo_directed_date} onChange={(v)=>update('ceo_directed_date', v)} />
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('direct_to_cxo')}</label>
+                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
+                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('ceo_note')}</label>
+                <textarea className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" rows={3} value={form.ceo_note} onChange={(e)=>update('ceo_note', e.target.value)} placeholder={t('ph_ceo_notes')} />
               </div>
             </div>
           </div>
@@ -353,23 +360,20 @@ export default function DocumentForm() {
         {/* Scenario 3: Outgoing Letter to External (From CEO to Companies/Agencies) */}
         {form.doc_type === 'OUTGOING' && form.source === 'EXTERNAL' && (
           <div className="border border-purple-200 dark:border-purple-800 rounded-xl p-4 bg-purple-50 dark:bg-purple-900/20">
-            <div className="font-semibold mb-3 text-purple-900 dark:text-purple-300">Scenario 3: External Outgoing Letter (From CEO to Companies/Agencies)</div>
+            <div className="font-semibold mb-3 text-purple-900 dark:text-purple-300">{t('scenario_3')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EthiopianDateInput label={t('written_date')} value={form.written_date} onChange={(v)=>update('written_date', v)} required />
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Written Date <span className="text-red-500">*</span></label>
-                <input type="date" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.written_date} onChange={(e)=>update('written_date', e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">To (Company/Agency Names) <span className="text-red-500">*</span></label>
-                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.company_office_name} onChange={(e)=>update('company_office_name', e.target.value)} placeholder="e.g., Ethiopian Airlines, Ministry of Finance" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('to_company_agency')} <span className="text-red-500">*</span></label>
+                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.company_office_name} onChange={(e)=>update('company_office_name', e.target.value)} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.subject} onChange={(e)=>update('subject', e.target.value)} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Signature Name</label>
-                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.signature_name} onChange={(e)=>update('signature_name', e.target.value)} placeholder="CEO name" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('signature_name')}</label>
+                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.signature_name} onChange={(e)=>update('signature_name', e.target.value)} />
               </div>
             </div>
           </div>
@@ -378,27 +382,24 @@ export default function DocumentForm() {
         {/* Scenario 4: Outgoing Letter to Internal (From CEO to CxO Offices) */}
         {form.doc_type === 'OUTGOING' && form.source === 'INTERNAL' && (
           <div className="border border-orange-200 dark:border-orange-800 rounded-xl p-4 bg-orange-50 dark:bg-orange-900/20">
-            <div className="font-semibold mb-3 text-orange-900 dark:text-orange-300">Scenario 4: Internal Outgoing Letter (From CEO to CxO Offices)</div>
+            <div className="font-semibold mb-3 text-orange-900 dark:text-orange-300">{t('scenario_4')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EthiopianDateInput label={t('written_date')} value={form.written_date} onChange={(v)=>update('written_date', v)} required />
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Written Date <span className="text-red-500">*</span></label>
-                <input type="date" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.written_date} onChange={(e)=>update('written_date', e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">To (CxO Offices) <span className="text-red-500">*</span></label>
-                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder="Select recipient CxO offices" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('to_cxo_offices')} <span className="text-red-500">*</span></label>
+                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_cxo')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.subject} onChange={(e)=>update('subject', e.target.value)} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Signature Name</label>
-                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.signature_name} onChange={(e)=>update('signature_name', e.target.value)} placeholder="CEO name" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('signature_name')}</label>
+                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.signature_name} onChange={(e)=>update('signature_name', e.target.value)} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">CC (Other CxO Offices - Optional)</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder="Select offices to CC" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_other_cxo_optional')}</label>
+                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
             </div>
           </div>
@@ -407,15 +408,12 @@ export default function DocumentForm() {
         {/* Scenario 5: Incoming Memo (From CxO Offices to CEO) */}
         {form.doc_type === 'MEMO' && form.source === 'INTERNAL' && (
           <div className="border border-teal-200 dark:border-teal-800 rounded-xl p-4 bg-teal-50 dark:bg-teal-900/20">
-            <div className="font-semibold mb-3 text-teal-900 dark:text-teal-300">Scenario 5: Incoming Memo (From CxO Office to CEO)</div>
+            <div className="font-semibold mb-3 text-teal-900 dark:text-teal-300">{t('scenario_5')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EthiopianDateInput label={t('memo_date')} value={form.memo_date} onChange={(v)=>update('memo_date', v)} required />
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Memo Date <span className="text-red-500">*</span></label>
-                <input type="date" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.memo_date} onChange={(e)=>update('memo_date', e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">From Office (CxO) <span className="text-red-500">*</span></label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder="Select originating CxO office" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('from_office_cxo')} <span className="text-red-500">*</span></label>
+                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_originating')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
@@ -428,27 +426,24 @@ export default function DocumentForm() {
         {/* Scenario 6: Outgoing Memo (From CEO to CxO Offices) */}
         {form.doc_type === 'MEMO' && form.source === 'EXTERNAL' && (
           <div className="border border-amber-200 dark:border-amber-800 rounded-xl p-4 bg-amber-50 dark:bg-amber-900/20">
-            <div className="font-semibold mb-3 text-amber-900 dark:text-amber-300">Scenario 6: Outgoing Memo (From CEO to CxO Offices)</div>
+            <div className="font-semibold mb-3 text-amber-900 dark:text-amber-300">{t('scenario_6')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EthiopianDateInput label={t('memo_date')} value={form.memo_date} onChange={(v)=>update('memo_date', v)} required />
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Memo Date <span className="text-red-500">*</span></label>
-                <input type="date" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.memo_date} onChange={(e)=>update('memo_date', e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">To (CxO Offices) <span className="text-red-500">*</span></label>
-                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder="Select recipient CxO offices" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('to_cxo_offices')} <span className="text-red-500">*</span></label>
+                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_cxo')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.subject} onChange={(e)=>update('subject', e.target.value)} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Signature Name</label>
-                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.signature_name} onChange={(e)=>update('signature_name', e.target.value)} placeholder="CEO name" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('signature_name')}</label>
+                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.signature_name} onChange={(e)=>update('signature_name', e.target.value)} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">CC (Other CxO Offices - Optional)</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder="Select offices to CC" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_other_cxo_optional')}</label>
+                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
             </div>
           </div>
@@ -462,15 +457,12 @@ export default function DocumentForm() {
         {/* Scenario 7: Incoming from external to CxO office */}
         {form.doc_type === 'INCOMING' && form.source === 'EXTERNAL' && (
           <div className="border border-blue-200 dark:border-blue-800 rounded-xl p-4 bg-blue-50 dark:bg-blue-900/20">
-            <div className="font-semibold mb-3 text-blue-900 dark:text-blue-300">Scenario 7: External Incoming Letter (From Outside Company to Your CxO Office)</div>
+            <div className="font-semibold mb-3 text-blue-900 dark:text-blue-300">{t('scenario_7')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EthiopianDateInput label={t('received_date')} value={form.received_date} onChange={(v)=>update('received_date', v)} required />
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Received Date <span className="text-red-500">*</span></label>
-                <input type="date" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.received_date} onChange={(e)=>update('received_date', e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Company/Agency Name <span className="text-red-500">*</span></label>
-                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.company_office_name} onChange={(e)=>update('company_office_name', e.target.value)} placeholder="e.g., Ministry of Water" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('company_office_name')} <span className="text-red-500">*</span></label>
+                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.company_office_name} onChange={(e)=>update('company_office_name', e.target.value)} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
@@ -483,23 +475,20 @@ export default function DocumentForm() {
         {/* Scenario 8: Incoming from another CxO office to this CxO office */}
         {form.doc_type === 'INCOMING' && form.source === 'INTERNAL' && (
           <div className="border border-green-200 dark:border-green-800 rounded-xl p-4 bg-green-50 dark:bg-green-900/20">
-            <div className="font-semibold mb-3 text-green-900 dark:text-green-300">Scenario 8: Internal Incoming Letter (From Another CxO Office to Your Office)</div>
+            <div className="font-semibold mb-3 text-green-900 dark:text-green-300">{t('scenario_8')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EthiopianDateInput label={t('received_date')} value={form.received_date} onChange={(v)=>update('received_date', v)} required />
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Received Date <span className="text-red-500">*</span></label>
-                <input type="date" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.received_date} onChange={(e)=>update('received_date', e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">From (Sending CxO Office)</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder="Select sending CxO office" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('from_sending_cxo')}</label>
+                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_sending')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.subject} onChange={(e)=>update('subject', e.target.value)} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Forward To (Other CxO Offices - Optional)</label>
-                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder="Select offices to forward to" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('forward_to_cxo')}</label>
+                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_forward')} />
               </div>
             </div>
           </div>
@@ -508,56 +497,75 @@ export default function DocumentForm() {
         {/* Scenario 9: Outgoing to external from CxO office */}
         {form.doc_type === 'OUTGOING' && form.source === 'EXTERNAL' && (
           <div className="border border-purple-200 dark:border-purple-800 rounded-xl p-4 bg-purple-50 dark:bg-purple-900/20">
-            <div className="font-semibold mb-3 text-purple-900 dark:text-purple-300">Scenario 9: External Outgoing Letter (From Your CxO Office to Companies/Agencies)</div>
+            <div className="font-semibold mb-3 text-purple-900 dark:text-purple-300">{t('scenario_9')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EthiopianDateInput label={t('written_date')} value={form.written_date} onChange={(v)=>update('written_date', v)} required />
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Written Date <span className="text-red-500">*</span></label>
-                <input type="date" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.written_date} onChange={(e)=>update('written_date', e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">To (Company/Agency Names) <span className="text-red-500">*</span></label>
-                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.company_office_name} onChange={(e)=>update('company_office_name', e.target.value)} placeholder="e.g., Ethiopian Airlines" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('to_company_agency')} <span className="text-red-500">*</span></label>
+                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.company_office_name} onChange={(e)=>update('company_office_name', e.target.value)} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.subject} onChange={(e)=>update('subject', e.target.value)} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Signature Name</label>
-                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.signature_name} onChange={(e)=>update('signature_name', e.target.value)} placeholder="CxO name" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('signature_name')}</label>
+                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.signature_name} onChange={(e)=>update('signature_name', e.target.value)} />
               </div>
             </div>
           </div>
         )}
 
-        {/* Scenario 10/11: Outgoing from CxO office */}
+        {/* Scenario 10/11/14: Outgoing from CxO office */}
         {form.doc_type === 'OUTGOING' && form.source === 'INTERNAL' && (
-          <div className="border border-orange-200 dark:border-orange-800 rounded-xl p-4 bg-orange-50 dark:bg-orange-900/20">
-            <div className="font-semibold mb-3 text-orange-900 dark:text-orange-300">Internal Outgoing Letter (From Your CxO Office)</div>
-            <div className="bg-orange-100 dark:bg-orange-900/40 rounded-lg p-3 mb-3 text-sm text-orange-800 dark:text-orange-300">
-              <strong>Tip:</strong> Leave &quot;To (CxO Offices)&quot; empty to send to CEO Office (Scenario 10). Select CxO offices to send to other offices (Scenario 11).
+          <div className={`border rounded-xl p-4 ${form.requires_ceo_direction ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20' : 'border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20'}`}>
+            <div className={`font-semibold mb-3 ${form.requires_ceo_direction ? 'text-indigo-900 dark:text-indigo-300' : 'text-orange-900 dark:text-orange-300'}`}>
+              {form.requires_ceo_direction ? t('scenario_14') : t('scenario_10_11')}
             </div>
+            {/* Toggle for CEO Direction workflow */}
+            <label className="flex items-center gap-2 mb-3 cursor-pointer select-none">
+              <input type="checkbox" checked={form.requires_ceo_direction} onChange={(e) => { update('requires_ceo_direction', e.target.checked); if (e.target.checked) update('directed_offices', []); }} className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+              <span className="text-sm font-medium dark:text-white">{t('requires_ceo_direction')}</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500">({t('requires_ceo_direction_hint')})</span>
+            </label>
+            {!form.requires_ceo_direction && (
+              <div className="bg-orange-100 dark:bg-orange-900/40 rounded-lg p-3 mb-3 text-sm text-orange-800 dark:text-orange-300">
+                <strong>{t('tip')}:</strong> {t('scenario_10_11_tip')}
+              </div>
+            )}
+            {form.requires_ceo_direction && (
+              <div className="bg-indigo-100 dark:bg-indigo-900/40 rounded-lg p-3 mb-3 text-sm text-indigo-800 dark:text-indigo-300">
+                <strong>{t('tip')}:</strong> {t('scenario_14_tip')}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Written Date <span className="text-red-500">*</span></label>
-                <input type="date" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.written_date} onChange={(e)=>update('written_date', e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">To (CxO Offices) <span className="text-xs text-slate-400">Empty = CEO Office</span></label>
-                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder="Leave empty for CEO, or select CxO offices" />
-              </div>
+              <EthiopianDateInput label={t('written_date')} value={form.written_date} onChange={(v)=>update('written_date', v)} required />
+              {!form.requires_ceo_direction && (
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('to_cxo_offices')} <span className="text-xs text-slate-400">{t('empty_equals_ceo')}</span></label>
+                  <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_leave_empty_ceo')} />
+                </div>
+              )}
+              {form.requires_ceo_direction && (
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
+                  <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                </div>
+              )}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.subject} onChange={(e)=>update('subject', e.target.value)} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Signature Name</label>
-                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.signature_name} onChange={(e)=>update('signature_name', e.target.value)} placeholder="CxO name" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('signature_name')}</label>
+                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.signature_name} onChange={(e)=>update('signature_name', e.target.value)} />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">CC (CxO Offices - Optional)</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder="Select offices to CC" />
-              </div>
+              {!form.requires_ceo_direction && (
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
+                  <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -565,23 +573,20 @@ export default function DocumentForm() {
         {/* Scenario 12: Memo from CxO to other CxO offices */}
         {form.doc_type === 'MEMO' && form.source === 'INTERNAL' && (
           <div className="border border-teal-200 dark:border-teal-800 rounded-xl p-4 bg-teal-50 dark:bg-teal-900/20">
-            <div className="font-semibold mb-3 text-teal-900 dark:text-teal-300">Scenario 12: Memo (From Your CxO Office to Other CxO Offices)</div>
+            <div className="font-semibold mb-3 text-teal-900 dark:text-teal-300">{t('scenario_12')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EthiopianDateInput label={t('memo_date')} value={form.memo_date} onChange={(v)=>update('memo_date', v)} required />
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Memo Date <span className="text-red-500">*</span></label>
-                <input type="date" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.memo_date} onChange={(e)=>update('memo_date', e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">To (Destination CxO Offices) <span className="text-red-500">*</span></label>
-                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder="Select destination CxO offices" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('to_dest_cxo')} <span className="text-red-500">*</span></label>
+                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_dest')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.subject} onChange={(e)=>update('subject', e.target.value)} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">CC (CxO Offices - Optional)</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder="Select offices to CC" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
+                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
             </div>
           </div>
@@ -590,23 +595,20 @@ export default function DocumentForm() {
         {/* Scenario 13: Memo from CxO to CEO */}
         {form.doc_type === 'MEMO' && form.source === 'EXTERNAL' && (
           <div className="border border-amber-200 dark:border-amber-800 rounded-xl p-4 bg-amber-50 dark:bg-amber-900/20">
-            <div className="font-semibold mb-3 text-amber-900 dark:text-amber-300">Scenario 13: Memo (From Your CxO Office to CEO Office)</div>
+            <div className="font-semibold mb-3 text-amber-900 dark:text-amber-300">{t('scenario_13')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Memo Date <span className="text-red-500">*</span></label>
-                <input type="date" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.memo_date} onChange={(e)=>update('memo_date', e.target.value)} />
-              </div>
+              <EthiopianDateInput label={t('memo_date')} value={form.memo_date} onChange={(v)=>update('memo_date', v)} required />
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.subject} onChange={(e)=>update('subject', e.target.value)} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">Signature Name</label>
-                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.signature_name} onChange={(e)=>update('signature_name', e.target.value)} placeholder="CxO name" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('signature_name')}</label>
+                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.signature_name} onChange={(e)=>update('signature_name', e.target.value)} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 dark:text-white">CC (CxO Offices - Optional)</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder="Select offices to CC" />
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
+                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
             </div>
           </div>
@@ -615,33 +617,30 @@ export default function DocumentForm() {
         )}
         {/* ===== SHARED FIELDS (all scenarios) ===== */}
         <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 border border-slate-200 dark:border-slate-600">
-          <div className="text-sm font-medium text-slate-600 dark:text-slate-300 mb-3">Additional Details</div>
+          <div className="text-sm font-medium text-slate-600 dark:text-slate-300 mb-3">{t('additional_details')}</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1 dark:text-white">Priority</label>
+              <label className="block text-sm font-medium mb-1 dark:text-white">{t('priority')}</label>
               <select className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white" value={form.priority} onChange={(e)=>update('priority', e.target.value)}>
-                <option value="LOW">Low</option>
-                <option value="NORMAL">Normal</option>
-                <option value="HIGH">High</option>
-                <option value="URGENT">Urgent</option>
+                <option value="LOW">{t('low')}</option>
+                <option value="NORMAL">{t('normal')}</option>
+                <option value="HIGH">{t('high')}</option>
+                <option value="URGENT">{t('urgent')}</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 dark:text-white">Confidentiality</label>
+              <label className="block text-sm font-medium mb-1 dark:text-white">{t('confidentiality')}</label>
               <select className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white" value={form.confidentiality} onChange={(e)=>update('confidentiality', e.target.value)}>
-                <option value="REGULAR">Regular</option>
-                <option value="CONFIDENTIAL">Confidential</option>
-                <option value="SECRET">Secret</option>
+                <option value="REGULAR">{t('regular')}</option>
+                <option value="CONFIDENTIAL">{t('confidential')}</option>
+                <option value="SECRET">{t('secret')}</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 dark:text-white">Due Date</label>
-              <input type="date" className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white" value={form.due_date} onChange={(e)=>update('due_date', e.target.value)} />
-            </div>
+            <EthiopianDateInput label={t('due_date')} value={form.due_date} onChange={(v)=>update('due_date', v)} />
           </div>
           <div className="mt-4">
-            <label className="block text-sm font-medium mb-1 dark:text-white">Summary / Description</label>
-            <textarea className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white" rows={3} value={form.summary} onChange={(e)=>update('summary', e.target.value)} placeholder="Brief summary or additional notes about this document" />
+            <label className="block text-sm font-medium mb-1 dark:text-white">{t('summary')}</label>
+            <textarea className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white" rows={3} value={form.summary} onChange={(e)=>update('summary', e.target.value)} placeholder={t('ph_summary')} />
           </div>
         </div>
 
@@ -652,7 +651,7 @@ export default function DocumentForm() {
           </label>
           <input type="file" multiple onChange={(e)=>setFiles(Array.from(e.target.files))} className="block w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-slate-100 dark:file:bg-slate-700 file:text-slate-700 dark:file:text-slate-200 hover:file:bg-slate-200 dark:hover:file:bg-slate-600" />
           {files.length > 0 && (
-            <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">{files.length} file(s) selected</div>
+            <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">{t('files_selected', { count: files.length })}</div>
           )}
         </div>
         <button disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-[#0B3C5D] dark:bg-[#F0B429] text-white dark:text-[#0B3C5D] px-4 py-2.5 font-medium shadow-sm hover:bg-[#09324F] dark:hover:bg-[#D9A020] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0B429] disabled:opacity-70 disabled:cursor-not-allowed" type="submit">

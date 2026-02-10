@@ -39,8 +39,8 @@ export default function Login() {
             <div className="text-xl font-semibold tracking-tight">{t('app_title')}</div>
           </div>
           <div className="mt-16 max-w-md">
-            <h2 className="text-3xl font-semibold leading-snug">Secure enterprise access</h2>
-            <p className="mt-3 text-white/80">Track and manage letters and memos with confidence. Built for performance, security, and scale.</p>
+            <h2 className="text-3xl font-semibold leading-snug">{t('app_title')}</h2>
+            <p className="mt-3 text-white/80">{t('login_subtitle')}</p>
           </div>
         </div>
         <div className="text-xs text-white/70">© {new Date().getFullYear()} Ethiopian Electric Utility</div>
@@ -52,7 +52,7 @@ export default function Login() {
           <div className="bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6 sm:p-8">
             <div className="mb-6">
               <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">{t('login')}</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Please sign in to continue</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('login_subtitle')}</p>
             </div>
             <form onSubmit={submit} className="space-y-4">
               <div>
@@ -81,16 +81,16 @@ export default function Login() {
                     onClick={()=>setShowPassword(v=>!v)}
                     className="absolute inset-y-0 right-0 px-3 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                   >
-                    {showPassword ? 'Hide' : 'Show'}
+                    {showPassword ? '🙈' : '👁'}
                   </button>
                 </div>
               </div>
               <div className="flex items-center justify-between">
                 <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                   <input type="checkbox" className="rounded border-slate-300 dark:border-slate-600 text-[#0B3C5D] focus:ring-[#F0B429]" />
-                  Remember me
+                  {t('remember_me') || 'Remember me'}
                 </label>
-                <a href="#" className="text-sm text-[#0B3C5D] dark:text-[#F0B429] hover:text-[#083554] dark:hover:text-[#D9A020]">Forgot password?</a>
+                <a href="#" className="text-sm text-[#0B3C5D] dark:text-[#F0B429] hover:text-[#083554] dark:hover:text-[#D9A020]">{t('forgot_password') || 'Forgot password?'}</a>
               </div>
               <button
                 disabled={loading}
@@ -102,7 +102,7 @@ export default function Login() {
               </button>
             </form>
           </div>
-          <div className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400">By signing in you agree to the Acceptable Use Policy.</div>
+          <div className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400">{t('accept_policy') || 'By signing in you agree to the Acceptable Use Policy.'}</div>
         </div>
       </div>
     </div>

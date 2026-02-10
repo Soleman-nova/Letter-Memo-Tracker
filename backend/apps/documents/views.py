@@ -83,6 +83,13 @@ class DocumentViewSet(viewsets.ModelViewSet):
             qs = qs.filter(directed_offices__id__in=dir_ids)
         if co_ids or dir_ids:
             qs = qs.distinct()
+        # Date range filtering (YYYY-MM-DD format)
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        if date_from:
+            qs = qs.filter(registered_at__date__gte=date_from)
+        if date_to:
+            qs = qs.filter(registered_at__date__lte=date_to)
         return qs
 
     def get_serializer_class(self):
@@ -162,7 +169,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         # Valid status transitions per scenario
         valid_transitions = {
             1: {'REGISTERED': ['DIRECTED'], 'DIRECTED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
-            2: {'REGISTERED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            2: {'REGISTERED': ['DIRECTED'], 'DIRECTED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
             3: {'REGISTERED': ['CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
             4: {'REGISTERED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
             5: {'REGISTERED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
@@ -174,6 +181,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             11: {'REGISTERED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
             12: {'REGISTERED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
             13: {'REGISTERED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            14: {'REGISTERED': ['DIRECTED'], 'DIRECTED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
         }
         
         # Validate transition (skip for RECEIVED which is handled by mark_received action)
@@ -186,10 +194,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
         
         # Dispatch permission checks
         if new_status == 'DISPATCHED':
-            # S1: CEO Secretary dispatches after direction
-            if scenario == 1:
+            # S1, S2, S14: CEO Secretary dispatches after direction
+            if scenario in [1, 2, 14]:
                 if document.status != 'DIRECTED':
-                    return Response({'error': 'Document must be directed before dispatching (Scenario 1)'}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({'error': 'Document must be directed before dispatching'}, status=status.HTTP_400_BAD_REQUEST)
                 if profile.role not in ['CEO_SECRETARY', 'SUPER_ADMIN']:
                     raise PermissionDenied("Only CEO Secretary can dispatch this document")
             # S4, S6: CEO Secretary dispatches directly from REGISTERED
@@ -210,14 +218,14 @@ class DocumentViewSet(viewsets.ModelViewSet):
             # S3, S9: no dispatch needed (outgoing external)
             elif scenario in [3, 9]:
                 return Response({'error': 'External outgoing documents do not need dispatching'}, status=status.HTTP_400_BAD_REQUEST)
-            # S2, S5, S7, S10, S13: no dispatch step
-            elif scenario in [2, 5, 7, 10, 13]:
+            # S5, S7, S10, S13: no dispatch step
+            elif scenario in [5, 7, 10, 13] and scenario != 14:
                 return Response({'error': 'This scenario does not have a dispatch step'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Direction permission check (only S1)
+        # Direction permission check (S1, S2, S14)
         if new_status == 'DIRECTED':
-            if scenario != 1:
-                return Response({'error': 'Only Scenario 1 documents require CEO direction'}, status=status.HTTP_400_BAD_REQUEST)
+            if scenario not in [1, 2, 14]:
+                return Response({'error': 'Only Scenario 1, 2, and 14 documents require CEO direction'}, status=status.HTTP_400_BAD_REQUEST)
             if profile.role not in ['CEO_SECRETARY', 'SUPER_ADMIN']:
                 raise PermissionDenied("Only CEO Secretary can direct documents")
         
@@ -298,6 +306,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
         if dt == 'INCOMING' and src == 'INTERNAL' and not is_ceo_level: return 8
         if dt == 'OUTGOING' and src == 'EXTERNAL' and not is_ceo_level: return 9
         if dt == 'OUTGOING' and src == 'INTERNAL' and not is_ceo_level:
+            if getattr(document, 'requires_ceo_direction', False):
+                return 14
             return 11 if document.directed_offices.exists() else 10
         if dt == 'MEMO' and src == 'INTERNAL' and not is_ceo_level: return 12
         if dt == 'MEMO' and src == 'EXTERNAL' and not is_ceo_level: return 13
@@ -325,8 +335,9 @@ class DocumentViewSet(viewsets.ModelViewSet):
         if document.status not in ['DISPATCHED', 'REGISTERED']:
             return Response({'error': 'Document is not in a receivable status'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Scenarios where CEO Secretary receives (S2, S5, S10, S13)
-        ceo_receives = scenario in [2, 5, 10, 13]
+        # Scenarios where CEO Secretary receives (S5, S10, S13)
+        # S2 now has CEO direction + dispatch like S1, so receipt is via directed_offices
+        ceo_receives = scenario in [5, 10, 13]
         
         if ceo_receives:
             if profile.role not in ['CEO_SECRETARY', 'SUPER_ADMIN']:

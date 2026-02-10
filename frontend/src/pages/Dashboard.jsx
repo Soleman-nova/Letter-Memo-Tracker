@@ -4,6 +4,7 @@ import api from '../api'
 import { useTranslation } from 'react-i18next'
 import { LayoutDashboard, FilePlus, FileText, Inbox, Send, FileStack, Clock, CheckCircle, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import EthDateDisplay from '../components/EthDateDisplay'
 
 export default function Dashboard() {
   const { t } = useTranslation()
@@ -51,7 +52,7 @@ export default function Dashboard() {
           </div>
           <div>
             <h1 className="text-2xl font-semibold dark:text-white">{t('dashboard')}</h1>
-            <div className="text-sm text-slate-500 dark:text-slate-400">Overview of your documents</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400">{t('dashboard_subtitle')}</div>
           </div>
         </div>
         <div className="flex gap-2">
@@ -69,28 +70,28 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard title="Total" value={stats.total} loading={loading} accent="#0B3C5D" icon={FileStack} />
-        <StatCard title="Incoming" value={stats.incoming} loading={loading} accent="#2563EB" icon={Inbox} />
-        <StatCard title="Outgoing" value={stats.outgoing} loading={loading} accent="#EA580C" icon={Send} />
-        <StatCard title="Memos" value={stats.memo} loading={loading} accent="#0D9488" icon={FileText} />
-        <StatCard title="Pending" value={stats.pending} loading={loading} accent="#F0B429" icon={AlertCircle} />
-        <StatCard title="Received" value={stats.received} loading={loading} accent="#16A34A" icon={CheckCircle} />
+        <StatCard title={t('total')} value={stats.total} loading={loading} accent="#0B3C5D" icon={FileStack} />
+        <StatCard title={t('incoming_docs')} value={stats.incoming} loading={loading} accent="#2563EB" icon={Inbox} />
+        <StatCard title={t('outgoing_docs')} value={stats.outgoing} loading={loading} accent="#EA580C" icon={Send} />
+        <StatCard title={t('memos')} value={stats.memo} loading={loading} accent="#0D9488" icon={FileText} />
+        <StatCard title={t('pending_docs')} value={stats.pending} loading={loading} accent="#F0B429" icon={AlertCircle} />
+        <StatCard title={t('received_docs')} value={stats.received} loading={loading} accent="#16A34A" icon={CheckCircle} />
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700">
         <div className="px-4 py-3 border-b dark:border-slate-700 font-semibold flex items-center gap-2 dark:text-white">
           <Clock className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-          Recent documents
+          {t('recent_documents')}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left border-b dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
-                <th className="py-2 px-4 dark:text-slate-300">Ref</th>
-                <th className="px-4 dark:text-slate-300">Type</th>
+                <th className="py-2 px-4 dark:text-slate-300">{t('ref_no')}</th>
+                <th className="px-4 dark:text-slate-300">{t('type')}</th>
                 <th className="px-4 dark:text-slate-300">{t('subject')}</th>
-                <th className="px-4 dark:text-slate-300">Status</th>
-                <th className="px-4 dark:text-slate-300">Registered</th>
+                <th className="px-4 dark:text-slate-300">{t('status')}</th>
+                <th className="px-4 dark:text-slate-300">{t('registered')}</th>
               </tr>
             </thead>
             <tbody>
@@ -123,12 +124,12 @@ export default function Dashboard() {
                       d.status === 'RESPONDED' ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300' :
                       'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-200'
                     }`}>{d.status}</span></td>
-                    <td className="px-4 dark:text-slate-300">{new Date(d.registered_at).toLocaleString()}</td>
+                    <td className="px-4 dark:text-slate-300"><EthDateDisplay date={d.registered_at} includeTime inline /></td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td className="py-6 text-center text-slate-500 dark:text-slate-400" colSpan={5}>No documents yet</td>
+                  <td className="py-6 text-center text-slate-500 dark:text-slate-400" colSpan={5}>{t('no_documents_yet')}</td>
                 </tr>
               )}
             </tbody>

@@ -5,6 +5,7 @@ import api from '../api'
 import { FileText, ArrowLeft, Paperclip, Inbox, Send, FileStack, Edit, CheckCircle, Truck, Eye, Clock, Users } from 'lucide-react'
 import { useToast } from '../contexts/ToastContext'
 import { useAuth } from '../contexts/AuthContext'
+import EthDateDisplay, { formatEthiopianDate } from '../components/EthDateDisplay'
 
 export default function DocumentDetail() {
   const { id } = useParams()
@@ -102,13 +103,13 @@ export default function DocumentDetail() {
   if (loading) return (
     <div className="p-8 text-center">
       <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-[#0B3C5D] dark:border-slate-600 dark:border-t-[#F0B429]" />
-      <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">Loading document...</div>
+      <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">{t('loading_document')}</div>
     </div>
   )
   if (error) return (
     <div className="p-8 text-center">
       <div className="text-red-500 dark:text-red-400 font-medium">{error}</div>
-      <button onClick={() => navigate('/documents')} className="mt-3 text-sm text-blue-600 dark:text-blue-400 hover:underline">Back to documents</button>
+      <button onClick={() => navigate('/documents')} className="mt-3 text-sm text-blue-600 dark:text-blue-400 hover:underline">{t('documents')}</button>
     </div>
   )
   if (!doc) return null
@@ -127,25 +128,26 @@ export default function DocumentDetail() {
 
   // Scenario labels
   const scenarioLabels = {
-    1: 'Scenario 1: External Incoming Letter (From Outside Company to CEO)',
-    2: 'Scenario 2: Internal Incoming Letter (From CxO Office to CEO)',
-    3: 'Scenario 3: External Outgoing Letter (From CEO to Companies/Agencies)',
-    4: 'Scenario 4: Internal Outgoing Letter (From CEO to CxO Offices)',
-    5: 'Scenario 5: Incoming Memo (From CxO Office to CEO)',
-    6: 'Scenario 6: Outgoing Memo (From CEO to CxO Offices)',
-    7: 'Scenario 7: External Incoming Letter (From Outside Company to CxO Office)',
-    8: 'Scenario 8: Internal Incoming Letter (From CxO Office to CxO Office)',
-    9: 'Scenario 9: External Outgoing Letter (From CxO Office to Companies/Agencies)',
-    10: 'Scenario 10: Internal Outgoing Letter (From CxO Office to CEO)',
-    11: 'Scenario 11: Internal Outgoing Letter (From CxO Office to CxO Offices)',
-    12: 'Scenario 12: Incoming Memo (From CxO Office to CxO Offices)',
-    13: 'Scenario 13: Outgoing Memo (From CxO Office to CEO)',
+    1: t('scenario_1'),
+    2: t('scenario_2'),
+    3: t('scenario_3'),
+    4: t('scenario_4'),
+    5: t('scenario_5'),
+    6: t('scenario_6'),
+    7: t('scenario_7'),
+    8: t('scenario_8'),
+    9: t('scenario_9'),
+    10: t('scenario_10'),
+    11: t('scenario_11'),
+    12: t('scenario_12'),
+    13: t('scenario_13'),
+    14: t('scenario_14'),
   }
 
   // Scenarios that need dispatch by registering secretary
-  const needsDispatch = [1, 4, 6, 8, 11, 12]
-  // Scenarios that need CEO direction (only S1)
-  const needsCeoDirection = [1]
+  const needsDispatch = [1, 2, 4, 6, 8, 11, 12, 14]
+  // Scenarios that need CEO direction (S1, S2, S14)
+  const needsCeoDirection = [1, 2, 14]
   // Scenarios with no direction needed - dispatch directly from REGISTERED
   const directDispatch = [4, 6, 8, 11, 12]
   // Scenarios with no receipt/dispatch needed
@@ -167,20 +169,20 @@ export default function DocumentDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* S1: CEO Direction needed first */}
-          {doc.status === 'REGISTERED' && scenario === 1 && 
+          {/* S1, S2: CEO Direction needed first */}
+          {doc.status === 'REGISTERED' && needsCeoDirection.includes(scenario) && 
            (role === 'CEO_SECRETARY' || role === 'SUPER_ADMIN') && (
             <Link to={`/documents/${id}/edit`} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-blue-700">
               <Edit className="w-4 h-4" />
-              Add CEO Direction
+              {t('add_ceo_direction')}
             </Link>
           )}
-          {/* S1: After direction, dispatch */}
-          {doc.status === 'DIRECTED' && scenario === 1 &&
+          {/* S1, S2: After direction, dispatch */}
+          {doc.status === 'DIRECTED' && needsCeoDirection.includes(scenario) &&
            (role === 'CEO_SECRETARY' || role === 'SUPER_ADMIN') && (
             <button onClick={() => updateStatus('DISPATCHED')} disabled={updating} className="inline-flex items-center gap-2 rounded-lg bg-orange-600 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-orange-700 disabled:opacity-50">
               <Truck className="w-4 h-4" />
-              {updating ? 'Dispatching...' : 'Dispatch to CxO Office(s)'}
+              {updating ? t('dispatching') : t('dispatch_to_cxo')}
             </button>
           )}
           {/* Direct dispatch scenarios (no direction needed) - by the registering secretary */}
@@ -189,54 +191,54 @@ export default function DocumentDetail() {
              ([8, 11, 12].includes(scenario) && role === 'CXO_SECRETARY')) && (
             <button onClick={() => updateStatus('DISPATCHED')} disabled={updating} className="inline-flex items-center gap-2 rounded-lg bg-orange-600 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-orange-700 disabled:opacity-50">
               <Truck className="w-4 h-4" />
-              {updating ? 'Dispatching...' : 'Dispatch'}
+              {updating ? t('dispatching') : t('dispatch')}
             </button>
           )}
           {/* Mark as Received - driven by backend user_can_receive */}
           {doc.user_can_receive && (
             <button onClick={markAsReceived} disabled={receiving} className="inline-flex items-center gap-2 rounded-lg bg-green-600 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-green-700 disabled:opacity-50">
               <CheckCircle className="w-4 h-4" />
-              {receiving ? 'Updating...' : 'Mark as Received'}
+              {receiving ? t('updating') : t('mark_received')}
             </button>
           )}
           {/* Mark as Seen (CC acknowledgment) - driven by backend user_can_acknowledge */}
           {doc.user_can_acknowledge && (
             <button onClick={acknowledgeDocument} disabled={acknowledging} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-emerald-700 disabled:opacity-50">
               <Eye className="w-4 h-4" />
-              {acknowledging ? 'Acknowledging...' : 'Mark as Seen'}
+              {acknowledging ? t('updating') : t('mark_seen')}
             </button>
           )}
           {/* Post-receive workflow: Mark In Progress */}
           {doc.status === 'RECEIVED' && canEdit && (
             <button onClick={() => updateStatus('IN_PROGRESS')} disabled={updating} className="inline-flex items-center gap-2 rounded-lg bg-purple-600 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-purple-700 disabled:opacity-50">
               <Clock className="w-4 h-4" />
-              {updating ? 'Updating...' : 'Mark In Progress'}
+              {updating ? t('updating') : t('mark_in_progress')}
             </button>
           )}
           {/* Post-receive workflow: Mark Responded */}
           {doc.status === 'IN_PROGRESS' && canEdit && (
             <button onClick={() => updateStatus('RESPONDED')} disabled={updating} className="inline-flex items-center gap-2 rounded-lg bg-teal-600 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-teal-700 disabled:opacity-50">
               <Send className="w-4 h-4" />
-              {updating ? 'Updating...' : 'Mark Responded'}
+              {updating ? t('updating') : t('mark_responded')}
             </button>
           )}
           {/* Close document - available from RECEIVED, IN_PROGRESS, RESPONDED */}
           {['RECEIVED', 'IN_PROGRESS', 'RESPONDED'].includes(doc.status) && canEdit && (
             <button onClick={() => updateStatus('CLOSED')} disabled={updating} className="inline-flex items-center gap-2 rounded-lg bg-gray-600 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-gray-700 disabled:opacity-50">
               <FileText className="w-4 h-4" />
-              {updating ? 'Closing...' : 'Close'}
+              {updating ? t('updating') : t('close')}
             </button>
           )}
           {/* Close for register-only scenarios (S3, S9) */}
           {doc.status === 'REGISTERED' && noReceipt.includes(scenario) && canEdit && (
             <button onClick={() => updateStatus('CLOSED')} disabled={updating} className="inline-flex items-center gap-2 rounded-lg bg-gray-600 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-gray-700 disabled:opacity-50">
               <FileText className="w-4 h-4" />
-              {updating ? 'Closing...' : 'Close'}
+              {updating ? t('updating') : t('close')}
             </button>
           )}
           <Link to="/documents" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">
             <ArrowLeft className="w-4 h-4" />
-            Back to list
+            {t('documents')}
           </Link>
         </div>
       </div>
@@ -249,27 +251,27 @@ export default function DocumentDetail() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {/* Date fields based on doc_type */}
-          {doc.doc_type === 'INCOMING' && <Field label="Received Date" value={doc.received_date} />}
-          {doc.doc_type === 'OUTGOING' && <Field label="Written Date" value={doc.written_date} />}
-          {doc.doc_type === 'MEMO' && <Field label="Memo Date" value={doc.memo_date} />}
+          {doc.doc_type === 'INCOMING' && <Field label={t('received_date')} value={doc.received_date} isDate />}
+          {doc.doc_type === 'OUTGOING' && <Field label={t('written_date')} value={doc.written_date} isDate />}
+          {doc.doc_type === 'MEMO' && <Field label={t('memo_date')} value={doc.memo_date} isDate />}
           
           {/* Company name for external scenarios (S1, S3, S7, S9) */}
           {doc.company_office_name && (
-            <Field label={[1, 7].includes(scenario) ? 'From (Company/Agency)' : 'To (Company/Agency)'} value={doc.company_office_name} />
+            <Field label={[1, 7].includes(scenario) ? t('from') + ' (' + t('company_office_name') + ')' : t('to') + ' (' + t('company_office_name') + ')'} value={doc.company_office_name} />
           )}
           
           {/* Originating department for CxO scenarios (S7-S13) */}
           {doc.department_name && (
-            <Field label="Originating Office" value={`${doc.department_code} - ${doc.department_name}`} />
+            <Field label={t('office')} value={`${doc.department_code} - ${doc.department_name}`} />
           )}
           
           {/* co_offices: meaning depends on scenario */}
           {doc.co_office_names?.length > 0 && (
             <Chips 
               label={
-                [2, 5].includes(scenario) ? 'From Office (CxO)' :
-                [8].includes(scenario) ? 'From (Sending CxO Office)' :
-                'CC (CxO Offices)'
+                [2, 5].includes(scenario) ? t('from_office_cxo') :
+                [8].includes(scenario) ? t('from_sending_cxo') :
+                t('cc_cxo_optional')
               } 
               values={doc.co_office_names} 
             />
@@ -279,10 +281,10 @@ export default function DocumentDetail() {
           {doc.directed_office_names?.length > 0 && (
             <Chips 
               label={
-                [1].includes(scenario) ? 'CEO Directed To' :
-                [4, 6, 11, 12].includes(scenario) ? 'To (CxO Offices)' :
-                [8].includes(scenario) ? 'Forwarded To' :
-                'Directed To'
+                [1].includes(scenario) ? t('direct_to_cxo') :
+                [4, 6, 11, 12].includes(scenario) ? t('to_cxo_offices') :
+                [8].includes(scenario) ? t('forward_to_cxo') :
+                t('directed_office')
               } 
               values={doc.directed_office_names} 
             />
@@ -290,43 +292,43 @@ export default function DocumentDetail() {
 
           {/* S10, S13: destination is CEO Office (no directed_offices) */}
           {[10, 13].includes(scenario) && !doc.directed_office_names?.length && (
-            <Field label="To" value="CEO Office" />
+            <Field label={t('to')} value="CEO Office" />
           )}
           
           {/* Subject */}
           <Field label={t('subject')} value={doc.subject} full />
           
           {/* Summary */}
-          <Field label="Summary" value={doc.summary} full />
+          <Field label={t('summary')} value={doc.summary} full />
           
-          {/* CEO direction fields (only for S1) */}
-          {scenario === 1 && (
+          {/* CEO direction fields (for S1 and S2) */}
+          {needsCeoDirection.includes(scenario) && (
             <>
-              <Field label="CEO Directed Date" value={doc.ceo_directed_date} />
-              <Field label="CEO Note" value={doc.ceo_note} full />
+              <Field label={t('ceo_directed_date')} value={doc.ceo_directed_date} isDate />
+              <Field label={t('ceo_note')} value={doc.ceo_note} full />
             </>
           )}
           
           {/* Priority & Confidentiality */}
           {doc.priority && doc.priority !== 'NORMAL' && (
-            <Field label="Priority" value={<span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+            <Field label={t('priority')} value={<span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
               doc.priority === 'URGENT' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
               doc.priority === 'HIGH' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' :
               'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
             }`}>{doc.priority}</span>} />
           )}
           {doc.confidentiality && doc.confidentiality !== 'REGULAR' && (
-            <Field label="Confidentiality" value={<span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+            <Field label={t('confidentiality')} value={<span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
               doc.confidentiality === 'SECRET' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
               'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
             }`}>{doc.confidentiality}</span>} />
           )}
           
           {/* Due date */}
-          <Field label="Due Date" value={doc.due_date} />
+          <Field label={t('due_date')} value={doc.due_date} isDate />
           
           {/* Signature */}
-          <Field label="Signature" value={doc.signature_name} />
+          <Field label={t('signature_name')} value={doc.signature_name} />
         </div>
       </div>
 
@@ -335,14 +337,14 @@ export default function DocumentDetail() {
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-4">
           <h2 className="font-semibold mb-3 flex items-center gap-2 dark:text-white">
             <Truck className="w-4 h-4 text-[#0B3C5D] dark:text-[#F0B429]" />
-            Delivery Status
+            {t('delivery_status')}
           </h2>
           <div className="space-y-3">
             {doc.receipts?.length > 0 && (
               <div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                   <CheckCircle className="w-3 h-3 text-green-500" />
-                  Received
+                  {t('received')}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {doc.receipts.map(receipt => (
@@ -351,7 +353,7 @@ export default function DocumentDetail() {
                       <div>
                         <div className="text-sm font-medium text-green-800 dark:text-green-300">{receipt.department_code || receipt.department_name}</div>
                         <div className="text-xs text-green-600 dark:text-green-400">
-                          by {receipt.received_by_name} · {new Date(receipt.received_at).toLocaleDateString()}
+                          by {receipt.received_by_name} · <EthDateDisplay date={receipt.received_at} inline className="inline" />
                         </div>
                       </div>
                     </div>
@@ -363,7 +365,7 @@ export default function DocumentDetail() {
               <div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                   <Clock className="w-3 h-3 text-amber-500" />
-                  Pending Receipt
+                  {t('pending_receipt')}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {doc.pending_receipts.map(dept => (
@@ -378,7 +380,7 @@ export default function DocumentDetail() {
             {doc.receipts?.length > 0 && doc.pending_receipts?.length === 0 && (
               <div className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
                 <CheckCircle className="w-4 h-4" />
-                All offices have received this document
+                {t('all_received')}
               </div>
             )}
           </div>
@@ -390,14 +392,14 @@ export default function DocumentDetail() {
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-4">
           <h2 className="font-semibold mb-3 flex items-center gap-2 dark:text-white">
             <Users className="w-4 h-4 text-[#F0B429]" />
-            CC Office Acknowledgments (Mark as Seen)
+            {t('cc_acknowledgments')}
           </h2>
           <div className="space-y-3">
             {doc.acknowledgments?.length > 0 && (
               <div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                   <CheckCircle className="w-3 h-3 text-green-500" />
-                  Seen
+                  {t('seen')}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {doc.acknowledgments.map(ack => (
@@ -406,7 +408,7 @@ export default function DocumentDetail() {
                       <div>
                         <div className="text-sm font-medium text-green-800 dark:text-green-300">{ack.department_code || ack.department_name}</div>
                         <div className="text-xs text-green-600 dark:text-green-400">
-                          by {ack.acknowledged_by_name} · {new Date(ack.acknowledged_at).toLocaleDateString()}
+                          by {ack.acknowledged_by_name} · <EthDateDisplay date={ack.acknowledged_at} inline className="inline" />
                         </div>
                       </div>
                     </div>
@@ -418,7 +420,7 @@ export default function DocumentDetail() {
               <div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                   <Clock className="w-3 h-3 text-amber-500" />
-                  Pending
+                  {t('pending_docs')}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {doc.pending_acknowledgments.map(dept => (
@@ -433,7 +435,7 @@ export default function DocumentDetail() {
             {doc.acknowledgments?.length > 0 && doc.pending_acknowledgments?.length === 0 && (
               <div className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
                 <CheckCircle className="w-4 h-4" />
-                All CC offices have seen this document
+                {t('all_seen')}
               </div>
             )}
           </div>
@@ -444,13 +446,13 @@ export default function DocumentDetail() {
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-4">
         <h2 className="font-semibold mb-3 flex items-center gap-2 dark:text-white">
           <Clock className="w-4 h-4 text-[#0B3C5D] dark:text-[#F0B429]" />
-          Workflow Progress
+          {t('workflow_progress')}
         </h2>
         {(() => {
           // Build expected steps per scenario
           const steps = {
             1: ['REGISTERED', 'DIRECTED', 'DISPATCHED', 'RECEIVED'],
-            2: ['REGISTERED', 'RECEIVED'],
+            2: ['REGISTERED', 'DIRECTED', 'DISPATCHED', 'RECEIVED'],
             3: ['REGISTERED'],
             4: ['REGISTERED', 'DISPATCHED', 'RECEIVED'],
             5: ['REGISTERED', 'RECEIVED'],
@@ -462,12 +464,13 @@ export default function DocumentDetail() {
             11: ['REGISTERED', 'DISPATCHED', 'RECEIVED'],
             12: ['REGISTERED', 'DISPATCHED', 'RECEIVED'],
             13: ['REGISTERED', 'RECEIVED'],
+            14: ['REGISTERED', 'DIRECTED', 'DISPATCHED', 'RECEIVED'],
           }
           const stepLabels = {
-            REGISTERED: 'Registered',
-            DIRECTED: 'CEO Directed',
-            DISPATCHED: 'Dispatched',
-            RECEIVED: 'Received',
+            REGISTERED: t('registered'),
+            DIRECTED: t('directed'),
+            DISPATCHED: t('dispatched'),
+            RECEIVED: t('received'),
           }
           const flow = steps[scenario] || ['REGISTERED']
           const currentIdx = flow.indexOf(doc.status)
@@ -495,7 +498,7 @@ export default function DocumentDetail() {
                   <div className="w-8 h-0.5 bg-green-400" />
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 ring-2 ring-green-400 dark:ring-green-500">
                     <CheckCircle className="w-3.5 h-3.5" />
-                    {doc.status === 'IN_PROGRESS' ? 'In Progress' : doc.status === 'RESPONDED' ? 'Responded' : 'Closed'}
+                    {doc.status === 'IN_PROGRESS' ? t('in_progress') : doc.status === 'RESPONDED' ? t('responded') : t('closed')}
                   </div>
                 </>
               )}
@@ -520,7 +523,7 @@ export default function DocumentDetail() {
             ))}
           </div>
         ) : (
-          <div className="text-sm text-slate-500 dark:text-slate-400">No attachments</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">{t('no_attachments')}</div>
         )}
       </div>
 
@@ -529,7 +532,7 @@ export default function DocumentDetail() {
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-4">
           <h2 className="font-semibold mb-3 flex items-center gap-2 dark:text-white">
             <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            Activity Log
+            {t('activity_log')}
           </h2>
           <div className="space-y-2">
             {doc.activities.map(act => (
@@ -540,7 +543,7 @@ export default function DocumentDetail() {
                 </div>
                 <div className="text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">
                   {act.actor_name && <span>{act.actor_name} · </span>}
-                  {new Date(act.created_at).toLocaleString()}
+                  <EthDateDisplay date={act.created_at} includeTime inline className="inline" />
                 </div>
               </div>
             ))}
@@ -551,12 +554,19 @@ export default function DocumentDetail() {
   )
 }
 
-function Field({ label, value, full }) {
+const DATE_FIELD_LABELS = ['Received Date', 'Written Date', 'Memo Date', 'CEO Directed Date', 'Due Date']
+
+function Field({ label, value, full, isDate = false }) {
   if (!value) return null
+  const isDateField = isDate || DATE_FIELD_LABELS.includes(label)
   return (
     <div className={full ? 'md:col-span-2' : ''}>
       <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
-      <div className="text-sm dark:text-white">{value}</div>
+      {isDateField ? (
+        <div className="text-sm dark:text-white"><EthDateDisplay date={value} /></div>
+      ) : (
+        <div className="text-sm dark:text-white">{value}</div>
+      )}
     </div>
   )
 }

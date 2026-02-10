@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import api from '../api'
 import { Settings as SettingsIcon, Moon, Sun, Maximize, Minimize, Monitor, User, Bell, Shield } from 'lucide-react'
 import { useToast } from '../contexts/ToastContext'
+import EthDateDisplay from '../components/EthDateDisplay'
 
 export default function Settings() {
   const { t } = useTranslation()
@@ -51,8 +52,8 @@ export default function Settings() {
           <SettingsIcon className="w-5 h-5 text-white dark:text-[#0B3C5D]" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold dark:text-white">Settings</h1>
-          <div className="text-sm text-slate-500 dark:text-slate-400">Customize your experience</div>
+          <h1 className="text-2xl font-semibold dark:text-white">{t('settings')}</h1>
+          <div className="text-sm text-slate-500 dark:text-slate-400">{t('appearance')}</div>
         </div>
       </div>
 
@@ -61,7 +62,7 @@ export default function Settings() {
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Monitor className="w-5 h-5 text-[#0B3C5D] dark:text-[#F0B429]" />
-            <h2 className="text-lg font-semibold dark:text-white">Appearance</h2>
+            <h2 className="text-lg font-semibold dark:text-white">{t('appearance')}</h2>
           </div>
           
           <div className="space-y-4">
@@ -74,9 +75,9 @@ export default function Settings() {
                   <Sun className="w-5 h-5 text-slate-600 dark:text-slate-300" />
                 )}
                 <div>
-                  <div className="font-medium text-sm dark:text-white">Dark Mode</div>
+                  <div className="font-medium text-sm dark:text-white">{t('dark_mode')}</div>
                   <div className="text-xs text-slate-500 dark:text-slate-400">
-                    {darkMode ? 'Dark theme enabled' : 'Light theme enabled'}
+                    {t('dark_mode_desc')}
                   </div>
                 </div>
               </div>
@@ -103,9 +104,9 @@ export default function Settings() {
                   <Maximize className="w-5 h-5 text-slate-600 dark:text-slate-300" />
                 )}
                 <div>
-                  <div className="font-medium text-sm dark:text-white">Fullscreen Mode</div>
+                  <div className="font-medium text-sm dark:text-white">{t('fullscreen')}</div>
                   <div className="text-xs text-slate-500 dark:text-slate-400">
-                    {isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                    {t('fullscreen_desc')}
                   </div>
                 </div>
               </div>
@@ -113,7 +114,7 @@ export default function Settings() {
                 onClick={toggleFullscreen}
                 className="inline-flex items-center gap-2 rounded-lg bg-[#0B3C5D] dark:bg-[#F0B429] text-white dark:text-[#0B3C5D] px-3 py-1.5 text-sm font-medium hover:bg-[#09324F] dark:hover:bg-[#D9A020] transition-colors"
               >
-                {isFullscreen ? 'Exit' : 'Enter'}
+                {isFullscreen ? '✕' : '⛶'}
               </button>
             </div>
           </div>
@@ -123,25 +124,25 @@ export default function Settings() {
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
           <div className="flex items-center gap-2 mb-4">
             <User className="w-5 h-5 text-[#0B3C5D] dark:text-[#F0B429]" />
-            <h2 className="text-lg font-semibold dark:text-white">Account</h2>
+            <h2 className="text-lg font-semibold dark:text-white">{t('account')}</h2>
           </div>
           
           <div className="space-y-3">
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Username</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('username')}</div>
               <div className="font-medium text-sm dark:text-white">{user?.username || 'N/A'}</div>
             </div>
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Name</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('first_name')}</div>
               <div className="font-medium text-sm dark:text-white">{user?.first_name} {user?.last_name}</div>
             </div>
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Role</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('role')}</div>
               <div className="font-medium text-sm dark:text-white">{user?.profile?.role_display || 'N/A'}</div>
             </div>
             {user?.profile?.department && (
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
-                <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Department</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('department')}</div>
                 <div className="font-medium text-sm dark:text-white">{user.profile.department.code} - {user.profile.department.name}</div>
               </div>
             )}
@@ -152,14 +153,14 @@ export default function Settings() {
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Bell className="w-5 h-5 text-[#0B3C5D] dark:text-[#F0B429]" />
-            <h2 className="text-lg font-semibold dark:text-white">Notifications</h2>
+            <h2 className="text-lg font-semibold dark:text-white">{t('notifications')}</h2>
           </div>
           
           <div className="space-y-4">
             <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
               <div>
-                <div className="font-medium text-sm dark:text-white">Document Updates</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">Get notified about document changes</div>
+                <div className="font-medium text-sm dark:text-white">{t('email_notifications')}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">{t('email_notifications_desc')}</div>
               </div>
               <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-[#0B3C5D]">
                 <span className="inline-block h-4 w-4 transform rounded-full bg-white translate-x-6" />
@@ -167,8 +168,8 @@ export default function Settings() {
             </div>
             <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
               <div>
-                <div className="font-medium text-sm dark:text-white">Assignment Alerts</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">Receive alerts for new assignments</div>
+                <div className="font-medium text-sm dark:text-white">{t('notifications')}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">{t('coming_soon')}</div>
               </div>
               <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-[#0B3C5D]">
                 <span className="inline-block h-4 w-4 transform rounded-full bg-white translate-x-6" />
@@ -181,7 +182,7 @@ export default function Settings() {
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Shield className="w-5 h-5 text-[#0B3C5D] dark:text-[#F0B429]" />
-            <h2 className="text-lg font-semibold dark:text-white">Security</h2>
+            <h2 className="text-lg font-semibold dark:text-white">{t('security')}</h2>
           </div>
           
           <div className="space-y-3">
@@ -190,13 +191,13 @@ export default function Settings() {
                 onClick={() => setShowPasswordForm(true)}
                 className="w-full text-left p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
               >
-                <div className="font-medium text-sm dark:text-white">Change Password</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">Update your account password</div>
+                <div className="font-medium text-sm dark:text-white">{t('change_password')}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">{t('security')}</div>
               </button>
             ) : (
               <form onSubmit={handlePasswordChange} className="space-y-3">
                 <div>
-                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Current Password</label>
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{t('current_password')}</label>
                   <input
                     type="password"
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white"
@@ -206,7 +207,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">New Password</label>
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{t('new_password')}</label>
                   <input
                     type="password"
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white"
@@ -218,7 +219,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Confirm New Password</label>
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{t('confirm_password')}</label>
                   <input
                     type="password"
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white"
@@ -233,14 +234,14 @@ export default function Settings() {
                     disabled={saving}
                     className="px-4 py-2 rounded-lg bg-[#0B3C5D] text-white text-sm font-medium hover:bg-[#09324F] disabled:opacity-50"
                   >
-                    {saving ? 'Saving...' : 'Change Password'}
+                    {saving ? t('saving') : t('change_password')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowPasswordForm(false)}
                     className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white"
                   >
-                    Cancel
+                    {t('cancel')}
                   </button>
                 </div>
               </form>
@@ -251,19 +252,19 @@ export default function Settings() {
 
       {/* System Information */}
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
-        <h2 className="text-lg font-semibold mb-4 dark:text-white">System Information</h2>
+        <h2 className="text-lg font-semibold mb-4 dark:text-white">{t('system_info')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Application Version</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('app_version')}</div>
             <div className="font-medium dark:text-white">v1.0.0</div>
           </div>
           <div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Last Updated</div>
-            <div className="font-medium dark:text-white">{new Date().toLocaleDateString()}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('last_updated')}</div>
+            <div className="font-medium dark:text-white"><EthDateDisplay date={new Date()} inline /></div>
           </div>
           <div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Environment</div>
-            <div className="font-medium dark:text-white">Production</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('environment')}</div>
+            <div className="font-medium dark:text-white">{t('production')}</div>
           </div>
         </div>
       </div>

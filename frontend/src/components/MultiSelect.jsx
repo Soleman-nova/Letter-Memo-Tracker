@@ -1,17 +1,22 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export default function MultiSelect({ options, value, onChange, placeholder = 'Select...', className = '' }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
+
+  const validOptions = useMemo(() => (options || []).filter(opt => opt && opt.value !== undefined), [options])
 
   // Map for easy label lookup
   const labelMap = useMemo(() => {
     const m = new Map()
-    for (const opt of options || []) m.set(String(opt.value), opt.label)
+    for (const opt of validOptions) m.set(String(opt.value), opt.label)
     return m
-  }, [options])
+  }, [validOptions])
 
   const selectedLabels = (value || []).map(v => labelMap.get(String(v)) || String(v))
+  const allSelected = validOptions.length > 0 && (value || []).length === validOptions.length
 
   useEffect(() => {
     const onDocClick = (e) => {
@@ -30,6 +35,14 @@ export default function MultiSelect({ options, value, onChange, placeholder = 'S
     onChange(Array.from(s))
   }
 
+  const toggleAll = () => {
+    if (allSelected) {
+      onChange([])
+    } else {
+      onChange(validOptions.map(opt => String(opt.value)))
+    }
+  }
+
   return (
     <div className={`relative ${className}`} ref={ref}>
       <button type="button" className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full text-left bg-white dark:bg-slate-700" onClick={() => setOpen(o => !o)}>
@@ -45,7 +58,13 @@ export default function MultiSelect({ options, value, onChange, placeholder = 'S
       </button>
       {open && (
         <div className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-lg">
-          {(options || []).filter(opt => opt && opt.value !== undefined).map((opt, idx) => {
+          {validOptions.length > 1 && (
+            <label className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer select-none border-b border-slate-100 dark:border-slate-700 font-medium">
+              <input type="checkbox" className="accent-blue-600 dark:accent-[#F0B429]" checked={allSelected} onChange={toggleAll} />
+              <span className="text-sm dark:text-white">{allSelected ? t('deselect_all') : t('select_all')}</span>
+            </label>
+          )}
+          {validOptions.map((opt, idx) => {
             const checked = (value || []).map(String).includes(String(opt.value))
             return (
               <label key={`${opt.value}-${idx}`} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer select-none">
@@ -54,7 +73,7 @@ export default function MultiSelect({ options, value, onChange, placeholder = 'S
               </label>
             )
           })}
-          {(!options || options.length === 0) && (
+          {validOptions.length === 0 && (
             <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">No options</div>
           )}
         </div>
