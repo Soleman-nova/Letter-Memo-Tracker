@@ -61,8 +61,11 @@ class DocumentViewSet(viewsets.ModelViewSet):
         directed_offices_list = self.request.query_params.getlist('directed_offices')
         if q:
             qs = qs.filter(Q(ref_no__icontains=q) | Q(subject__icontains=q) | Q(sender_name__icontains=q) | Q(receiver_name__icontains=q))
+        source_param = self.request.query_params.get('source')
         if doc_type:
             qs = qs.filter(doc_type=doc_type)
+        if source_param:
+            qs = qs.filter(source=source_param)
         if status_param:
             qs = qs.filter(status=status_param)
         if department:

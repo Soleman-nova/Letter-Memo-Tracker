@@ -115,6 +115,13 @@ export default function DocumentForm() {
     return { value: String(d.id), label: `${d.code} - ${localLabel}` }
   })
 
+  // For CxO outgoing: exclude the user's own department from dropdowns
+  const deptOptionsExcludeSelf = deptOptions.filter(d => String(d.value) !== String(userDeptId))
+
+  // For CEO outgoing: exclude directed offices from CC dropdown
+  const directedSet = new Set((form.directed_offices || []).map(String))
+  const deptOptionsForCC = deptOptions.filter(d => !directedSet.has(String(d.value)))
+
   const update = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
 
   const submit = async (e) => {
@@ -399,7 +406,7 @@ export default function DocumentForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_other_cxo_optional')}</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                <MultiSelect options={deptOptionsForCC} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
             </div>
           </div>
@@ -443,7 +450,7 @@ export default function DocumentForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_other_cxo_optional')}</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                <MultiSelect options={deptOptionsForCC} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
             </div>
           </div>
@@ -543,13 +550,13 @@ export default function DocumentForm() {
               {!form.requires_ceo_direction && (
                 <div>
                   <label className="block text-sm font-medium mb-1 dark:text-white">{t('to_cxo_offices')} <span className="text-xs text-slate-400">{t('empty_equals_ceo')}</span></label>
-                  <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_leave_empty_ceo')} />
+                  <MultiSelect options={deptOptionsExcludeSelf} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_leave_empty_ceo')} />
                 </div>
               )}
               {form.requires_ceo_direction && (
                 <div>
                   <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
-                  <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                  <MultiSelect options={deptOptionsExcludeSelf} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
                 </div>
               )}
               <div className="md:col-span-2">
@@ -563,7 +570,7 @@ export default function DocumentForm() {
               {!form.requires_ceo_direction && (
                 <div>
                   <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
-                  <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                  <MultiSelect options={deptOptionsExcludeSelf} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
                 </div>
               )}
             </div>
@@ -578,7 +585,7 @@ export default function DocumentForm() {
               <EthiopianDateInput label={t('memo_date')} value={form.memo_date} onChange={(v)=>update('memo_date', v)} required />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('to_dest_cxo')} <span className="text-red-500">*</span></label>
-                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_dest')} />
+                <MultiSelect options={deptOptionsExcludeSelf} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_dest')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
@@ -586,7 +593,7 @@ export default function DocumentForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                <MultiSelect options={deptOptionsExcludeSelf} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
             </div>
           </div>
@@ -608,7 +615,7 @@ export default function DocumentForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                <MultiSelect options={deptOptionsExcludeSelf} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
             </div>
           </div>

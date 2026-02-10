@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import api from '../api'
 import { useAuth } from '../contexts/AuthContext'
 import { Users, Plus, Edit2, Trash2, X, AlertCircle, KeyRound } from 'lucide-react'
 import { useToast } from '../contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
+import Pagination from '../components/Pagination'
 
 export default function UserManagement() {
   const { t } = useTranslation()
@@ -23,6 +24,8 @@ export default function UserManagement() {
   const [editingUser, setEditingUser] = useState(null)
   const [resetPasswordUser, setResetPasswordUser] = useState(null)
   const [newPassword, setNewPassword] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const toast = useToast()
   const [form, setForm] = useState({
     username: '',
@@ -139,6 +142,13 @@ export default function UserManagement() {
       toast.error(toast.parseApiError(err))
     }
   }
+
+  // Pagination
+  const userTotalPages = Math.max(1, Math.ceil(users.length / pageSize))
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return users.slice(start, start + pageSize)
+  }, [users, currentPage, pageSize])
 
   if (!canManageUsers) {
     return (
@@ -337,7 +347,7 @@ export default function UserManagement() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-            {users.map(user => (
+            {paginatedUsers.map(user => (
               <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
                 <td className="px-4 py-3">
                   <div className="font-medium text-slate-800 dark:text-white">{user.first_name} {user.last_name}</div>
@@ -392,8 +402,16 @@ export default function UserManagement() {
           </tbody>
         </table>
         {users.length === 0 && (
-          <div className="p-8 text-center text-slate-500 dark:text-slate-400">{t('no_documents') || 'No users found'}</div>
+          <div className="p-8 text-center text-slate-500 dark:text-slate-400">{t('no_users') || 'No users found'}</div>
         )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={userTotalPages}
+          onPageChange={setCurrentPage}
+          pageSize={pageSize}
+          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1) }}
+          totalItems={users.length}
+        />
       </div>
     </div>
   )

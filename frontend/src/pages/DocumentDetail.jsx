@@ -347,17 +347,21 @@ export default function DocumentDetail() {
                   {t('received')}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {doc.receipts.map(receipt => (
+                  {doc.receipts.map(receipt => {
+                    const ceoReceiveScenarios = [5, 10, 13]
+                    const displayName = ceoReceiveScenarios.includes(scenario) ? t('ceo_office') : (receipt.department_code || receipt.department_name)
+                    return (
                     <div key={receipt.id} className="inline-flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 px-3 py-1.5">
                       <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                       <div>
-                        <div className="text-sm font-medium text-green-800 dark:text-green-300">{receipt.department_code || receipt.department_name}</div>
+                        <div className="text-sm font-medium text-green-800 dark:text-green-300">{displayName}</div>
                         <div className="text-xs text-green-600 dark:text-green-400">
                           by {receipt.received_by_name} · <EthDateDisplay date={receipt.received_at} inline className="inline" />
                         </div>
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}

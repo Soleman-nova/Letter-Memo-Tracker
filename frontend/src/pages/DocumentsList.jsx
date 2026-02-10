@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api'
 import { useTranslation } from 'react-i18next'
@@ -9,6 +9,7 @@ import { FileText, Search, FilePlus, Filter, Calendar } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import EthDateDisplay from '../components/EthDateDisplay'
 import EthiopianDateInput from '../components/EthiopianDateInput'
+import Pagination from '../components/Pagination'
 
 export default function DocumentsList() {
   const { t, i18n } = useTranslation()
@@ -18,16 +19,20 @@ export default function DocumentsList() {
   const [q, setQ] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [sourceFilter, setSourceFilter] = useState('')
   const [coFilter, setCoFilter] = useState([])
   const [dirFilter, setDirFilter] = useState([])
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   const load = async () => {
     try {
       const params = {}
       if (q) params.q = q
       if (typeFilter) params.doc_type = typeFilter
+      if (sourceFilter) params.source = sourceFilter
       if (statusFilter) params.status = statusFilter
       // Only add filters if they have valid values (not undefined/empty)
       const validCoFilter = coFilter.filter(v => v !== undefined && v !== null && v !== '')
@@ -38,6 +43,7 @@ export default function DocumentsList() {
       if (dateTo) params.date_to = dateTo
       const res = await api.get('/api/documents/documents/', { params })
       setItems(res.data)
+      setCurrentPage(1)
     } catch (err) {
       console.error('Failed to load documents:', err)
     }
@@ -51,7 +57,7 @@ export default function DocumentsList() {
   // Auto-reload when filters change
   useEffect(() => {
     load()
-  }, [typeFilter, statusFilter, dateFrom, dateTo])
+  }, [typeFilter, sourceFilter, statusFilter, dateFrom, dateTo])
 
   // Use backend departments with i18n labels from JSON
   const deptData = i18n.language === 'am' ? departmentsAm : departmentsEn
@@ -62,6 +68,13 @@ export default function DocumentsList() {
     const localLabel = labelMap.get(d.code?.trim().toUpperCase()) || d.name
     return { value: String(d.id), label: `${d.code} - ${localLabel}` }
   })
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize))
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return items.slice(start, start + pageSize)
+  }, [items, currentPage, pageSize])
 
   return (
     <div className="p-4 space-y-4">
@@ -106,6 +119,11 @@ export default function DocumentsList() {
             <option value="OUTGOING">{t('outgoing')}</option>
             <option value="MEMO">{t('memo')}</option>
           </select>
+          <select className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 dark:text-white text-sm" value={sourceFilter} onChange={(e)=>{setSourceFilter(e.target.value)}}>
+            <option value="">{t('all_sources')}</option>
+            <option value="EXTERNAL">{t('external')}</option>
+            <option value="INTERNAL">{t('internal')}</option>
+          </select>
           <select className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 dark:text-white text-sm" value={statusFilter} onChange={(e)=>{setStatusFilter(e.target.value)}}>
             <option value="">{t('all_statuses')}</option>
             <option value="REGISTERED">{t('registered')}</option>
@@ -123,12 +141,12 @@ export default function DocumentsList() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('co_office')}</div>
-            <MultiSelect options={deptOptions} value={coFilter} onChange={setCoFilter} placeholder={t('co_office')} />
+            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('source_originating_office')}</div>
+            <MultiSelect options={deptOptions} value={coFilter} onChange={setCoFilter} placeholder={t('source_originating_office')} />
           </div>
           <div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('directed_office')}</div>
-            <MultiSelect options={deptOptions} value={dirFilter} onChange={setDirFilter} placeholder={t('directed_office')} />
+            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('directed_destination_office')}</div>
+            <MultiSelect options={deptOptions} value={dirFilter} onChange={setDirFilter} placeholder={t('directed_destination_office')} />
           </div>
         </div>
         <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
@@ -166,7 +184,7 @@ export default function DocumentsList() {
             </tr>
           </thead>
           <tbody>
-            {items.length ? items.map((d)=> {
+            {paginatedItems.length ? paginatedItems.map((d)=> {
               const statusColors = {
                 REGISTERED: 'bg-slate-100 text-slate-700 dark:bg-slate-600 dark:text-slate-200',
                 DIRECTED: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
@@ -203,6 +221,14 @@ export default function DocumentsList() {
             )}
           </tbody>
         </table>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          pageSize={pageSize}
+          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1) }}
+          totalItems={items.length}
+        />
       </div>
     </div>
   )
