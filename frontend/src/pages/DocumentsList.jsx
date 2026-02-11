@@ -57,7 +57,7 @@ export default function DocumentsList() {
   // Auto-reload when filters change
   useEffect(() => {
     load()
-  }, [typeFilter, sourceFilter, statusFilter, dateFrom, dateTo])
+  }, [typeFilter, sourceFilter, statusFilter, coFilter, dirFilter, dateFrom, dateTo])
 
   // Use backend departments with i18n labels from JSON
   const deptData = i18n.language === 'am' ? departmentsAm : departmentsEn

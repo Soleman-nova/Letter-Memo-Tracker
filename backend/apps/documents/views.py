@@ -81,7 +81,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         if directed_offices_list:
             dir_ids.extend([x for x in directed_offices_list if x])
         if co_ids:
-            qs = qs.filter(co_offices__id__in=co_ids)
+            qs = qs.filter(Q(co_offices__id__in=co_ids) | Q(department_id__in=co_ids))
         if dir_ids:
             qs = qs.filter(directed_offices__id__in=dir_ids)
         if co_ids or dir_ids:
@@ -175,7 +175,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             2: {'REGISTERED': ['DIRECTED'], 'DIRECTED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
             3: {'REGISTERED': ['CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
             4: {'REGISTERED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
-            5: {'REGISTERED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            5: {'REGISTERED': ['DISPATCHED', 'RECEIVED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
             6: {'REGISTERED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
             7: {'REGISTERED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
             8: {'REGISTERED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
@@ -218,11 +218,19 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 # Ensure the dispatching CxO secretary belongs to the originating department
                 if profile.department_id != document.department_id:
                     raise PermissionDenied("Only the originating CxO office can dispatch this document")
+            # S5: CEO Secretary dispatches forwarded memo to directed offices
+            elif scenario == 5:
+                if not document.directed_offices.exists():
+                    return Response({'error': 'No directed offices set - cannot dispatch'}, status=status.HTTP_400_BAD_REQUEST)
+                if document.status != 'REGISTERED':
+                    return Response({'error': 'Document must be in REGISTERED status to dispatch'}, status=status.HTTP_400_BAD_REQUEST)
+                if profile.role not in ['CEO_SECRETARY', 'SUPER_ADMIN']:
+                    raise PermissionDenied("Only CEO Secretary can dispatch this document")
             # S3, S9: no dispatch needed (outgoing external)
             elif scenario in [3, 9]:
                 return Response({'error': 'External outgoing documents do not need dispatching'}, status=status.HTTP_400_BAD_REQUEST)
-            # S5, S7, S10, S13: no dispatch step
-            elif scenario in [5, 7, 10, 13] and scenario != 14:
+            # S7, S10, S13: no dispatch step
+            elif scenario in [7, 10, 13]:
                 return Response({'error': 'This scenario does not have a dispatch step'}, status=status.HTTP_400_BAD_REQUEST)
         
         # Direction permission check (S1, S2, S14)
@@ -303,8 +311,9 @@ class DocumentViewSet(viewsets.ModelViewSet):
         if dt == 'INCOMING' and src == 'INTERNAL' and is_ceo_level: return 2
         if dt == 'OUTGOING' and src == 'EXTERNAL' and is_ceo_level: return 3
         if dt == 'OUTGOING' and src == 'INTERNAL' and is_ceo_level: return 4
-        if dt == 'MEMO' and src == 'INTERNAL' and is_ceo_level: return 5
-        if dt == 'MEMO' and src == 'EXTERNAL' and is_ceo_level: return 6
+        if dt == 'MEMO' and is_ceo_level:
+            if document.co_offices.exists(): return 5  # Incoming from CxO (may have directed_offices)
+            return 6  # Outgoing from CEO
         if dt == 'INCOMING' and src == 'EXTERNAL' and not is_ceo_level: return 7
         if dt == 'INCOMING' and src == 'INTERNAL' and not is_ceo_level: return 8
         if dt == 'OUTGOING' and src == 'EXTERNAL' and not is_ceo_level: return 9
@@ -312,8 +321,9 @@ class DocumentViewSet(viewsets.ModelViewSet):
             if getattr(document, 'requires_ceo_direction', False):
                 return 14
             return 11 if document.directed_offices.exists() else 10
-        if dt == 'MEMO' and src == 'INTERNAL' and not is_ceo_level: return 12
-        if dt == 'MEMO' and src == 'EXTERNAL' and not is_ceo_level: return 13
+        if dt == 'MEMO' and not is_ceo_level:
+            if document.directed_offices.exists(): return 12
+            return 13
         return 0
 
     @action(detail=True, methods=['post'])
@@ -340,7 +350,9 @@ class DocumentViewSet(viewsets.ModelViewSet):
         
         # Scenarios where CEO Secretary receives (S5, S10, S13)
         # S2 now has CEO direction + dispatch like S1, so receipt is via directed_offices
-        ceo_receives = scenario in [5, 10, 13]
+        # S5 with directed offices: CxO offices receive (not CEO)
+        s5_has_directed = scenario == 5 and document.directed_offices.exists()
+        ceo_receives = scenario in [5, 10, 13] and not s5_has_directed
         
         if ceo_receives:
             if profile.role not in ['CEO_SECRETARY', 'SUPER_ADMIN']:

@@ -43,7 +43,7 @@ export default function Login() {
             <p className="mt-3 text-white/80">{t('login_subtitle')}</p>
           </div>
         </div>
-        <div className="text-xs text-white/70">© {new Date().getFullYear()} Ethiopian Electric Utility</div>
+        <div className="text-xs text-white/70">© {new Date().getFullYear()} Ethiopian Electric Utility. Developed by EEU IT.</div>
       </div>
 
       {/* Auth Card */}

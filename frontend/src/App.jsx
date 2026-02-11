@@ -69,16 +69,27 @@ function Sidebar() {
 
   return (
     <aside className="w-56 shrink-0 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex flex-col">
-      {/* User role badge */}
+      {/* User profile card */}
       {user?.profile && (
-        <div className="p-3 border-b border-slate-200 dark:border-slate-700">
-          <div className="text-xs text-slate-500 dark:text-slate-400">{t('logged_in_as')}</div>
-          <div className="font-medium text-sm text-slate-700 dark:text-slate-200">{user.first_name || user.username}</div>
-          <div className="text-xs mt-1 px-2 py-0.5 rounded-full bg-[#0B3C5D]/10 text-[#0B3C5D] dark:bg-[#F0B429]/20 dark:text-[#F0B429] inline-block">
-            {user.profile.role_display}
+        <div className="m-3 p-3 rounded-xl bg-gradient-to-br from-[#0B3C5D] to-[#14506E] dark:from-[#1e2433] dark:to-[#272d3d] border border-white/10 dark:border-slate-600/40 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-white/15 flex items-center justify-center ring-2 ring-white/20 shrink-0">
+              <span className="text-sm font-bold text-white">
+                {(user.first_name?.[0] || user.username?.[0] || '?').toUpperCase()}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm text-white truncate">{user.first_name || user.username}</div>
+              <div className="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded bg-[#F0B429]/20 text-[10px] font-semibold text-[#F0B429] tracking-wide uppercase">
+                {user.profile.role_display}
+              </div>
+            </div>
           </div>
           {user.profile.department && (
-            <div className="text-xs mt-1 text-slate-500 dark:text-slate-400">{user.profile.department.code} - {user.profile.department.name}</div>
+            <div className="mt-2.5 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+              <span className="text-[11px] text-white/80 font-medium truncate">{user.profile.department.code} - {user.profile.department.name}</span>
+            </div>
           )}
         </div>
       )}

@@ -98,6 +98,7 @@ class Document(models.Model):
     # Notes / signature
     ceo_note = models.TextField(blank=True)
     signature_name = models.CharField(max_length=200, blank=True)
+    cc_external_names = models.TextField(blank=True)
     requires_ceo_direction = models.BooleanField(default=False)
     created_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name='created_documents')
 

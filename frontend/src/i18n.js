@@ -250,6 +250,12 @@ const resources = {
       source_originating_office: 'Source / Originating CxO Office',
       directed_destination_office: 'Directed / Destination CxO Office',
       ceo_office: 'CEO Office',
+      cc_external: 'CC External (Companies/Agencies)',
+      cc_cxo: 'CC (CxO Offices):',
+      cc_cxo_and_ceo: 'CC (All CxO & CEO Offices)',
+      ph_cc_external: 'Enter external CC names, separated by commas',
+      cc_external_names: 'CC External Names',
+      dispatch_memo: 'Dispatch Memo',
     }
   },
   am: {
@@ -306,8 +312,8 @@ const resources = {
       // Source / Direction
       source: 'ምንጭ',
       direction: 'አቅጣጫ',
-      external: 'ውጫዊ',
-      internal: 'ውስጣዊ',
+      external: 'ውጫዊ (ከመ/ቤቱ ውጪ)',
+      internal: 'ውስጣዊ (መ/ቤቱ ውስጥ)',
       external_outside: 'ውጫዊ (ከኩባንያ ውጭ)',
       internal_cxo: 'ውስጣዊ (CxO ቢሮዎች)',
       internal_between: 'ውስጣዊ (በቢሮዎች መካከል)',
@@ -500,6 +506,12 @@ const resources = {
       source_originating_office: 'ምንጭ / አመንጪ CxO ቢሮ',
       directed_destination_office: 'የተመራበት / መዳረሻ CxO ቢሮ',
       ceo_office: 'የCEO ቢሮ',
+      cc_external: 'CC ውጫዊ (ኩባንያዎች/ኤጀንሲዎች)',
+      cc_cxo: 'CC (CxO ቢሮዎች):',
+      cc_cxo_and_ceo: 'CC (ሁሉም CxO እና CEO ቢሮዎች)',
+      ph_cc_external: 'የውጫዊ CC ስሞችን በነጠላ ሰረዝ ለይተው ያስገቡ',
+      cc_external_names: 'CC ውጫዊ ስሞች',
+      dispatch_memo: 'ማስታወሻ ላክ',
     }
   }
 }
@@ -508,8 +520,8 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: 'en',
-    fallbackLng: 'en',
+    lng: 'am',
+    fallbackLng: 'am',
     interpolation: { escapeValue: false },
   })
 

@@ -150,6 +150,8 @@ export default function DocumentDetail() {
   const needsCeoDirection = [1, 2, 14]
   // Scenarios with no direction needed - dispatch directly from REGISTERED
   const directDispatch = [4, 6, 8, 11, 12]
+  // S5 can optionally dispatch if directed_offices are set
+  const s5HasDirected = scenario === 5 && doc.directed_office_names?.length > 0
   // Scenarios with no receipt/dispatch needed
   const noReceipt = [3, 9]
   
@@ -192,6 +194,14 @@ export default function DocumentDetail() {
             <button onClick={() => updateStatus('DISPATCHED')} disabled={updating} className="inline-flex items-center gap-2 rounded-lg bg-orange-600 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-orange-700 disabled:opacity-50">
               <Truck className="w-4 h-4" />
               {updating ? t('dispatching') : t('dispatch')}
+            </button>
+          )}
+          {/* S5: Dispatch forwarded memo to directed offices */}
+          {doc.status === 'REGISTERED' && s5HasDirected &&
+           (role === 'CEO_SECRETARY' || role === 'SUPER_ADMIN') && (
+            <button onClick={() => updateStatus('DISPATCHED')} disabled={updating} className="inline-flex items-center gap-2 rounded-lg bg-orange-600 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-orange-700 disabled:opacity-50">
+              <Truck className="w-4 h-4" />
+              {updating ? t('dispatching') : t('dispatch_memo')}
             </button>
           )}
           {/* Mark as Received - driven by backend user_can_receive */}
@@ -281,7 +291,7 @@ export default function DocumentDetail() {
           {doc.directed_office_names?.length > 0 && (
             <Chips 
               label={
-                [1].includes(scenario) ? t('direct_to_cxo') :
+                [1, 5].includes(scenario) ? t('direct_to_cxo') :
                 [4, 6, 11, 12].includes(scenario) ? t('to_cxo_offices') :
                 [8].includes(scenario) ? t('forward_to_cxo') :
                 t('directed_office')
@@ -322,6 +332,11 @@ export default function DocumentDetail() {
               doc.confidentiality === 'SECRET' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
               'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
             }`}>{doc.confidentiality}</span>} />
+          )}
+          
+          {/* CC External Names (S3, S9) */}
+          {doc.cc_external_names && (
+            <Field label={t('cc_external_names')} value={doc.cc_external_names} full />
           )}
           
           {/* Due date */}
@@ -459,7 +474,7 @@ export default function DocumentDetail() {
             2: ['REGISTERED', 'DIRECTED', 'DISPATCHED', 'RECEIVED'],
             3: ['REGISTERED'],
             4: ['REGISTERED', 'DISPATCHED', 'RECEIVED'],
-            5: ['REGISTERED', 'RECEIVED'],
+            5: s5HasDirected ? ['REGISTERED', 'DISPATCHED', 'RECEIVED'] : ['REGISTERED', 'RECEIVED'],
             6: ['REGISTERED', 'DISPATCHED', 'RECEIVED'],
             7: ['REGISTERED', 'RECEIVED'],
             8: ['REGISTERED', 'DISPATCHED', 'RECEIVED'],

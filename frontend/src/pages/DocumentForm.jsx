@@ -44,12 +44,14 @@ export default function DocumentForm() {
     // Notes / signature
     ceo_note: '',
     signature_name: '',
+    cc_external_names: '',
     priority: 'NORMAL',
     confidentiality: 'REGULAR',
     requires_ceo_direction: false,
   })
   const [files, setFiles] = useState([])
   const [saving, setSaving] = useState(false)
+  const [memoDirection, setMemoDirection] = useState('OPTION_1')
   const toast = useToast()
 
   const isEditMode = !!id
@@ -89,6 +91,7 @@ export default function DocumentForm() {
           due_date: doc.due_date || '',
           ceo_note: doc.ceo_note || '',
           signature_name: doc.signature_name || '',
+          cc_external_names: doc.cc_external_names || '',
           priority: doc.priority || 'NORMAL',
           confidentiality: doc.confidentiality || 'REGULAR',
         })
@@ -122,7 +125,20 @@ export default function DocumentForm() {
   const directedSet = new Set((form.directed_offices || []).map(String))
   const deptOptionsForCC = deptOptions.filter(d => !directedSet.has(String(d.value)))
 
-  const update = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
+  // For CxO scenarios: exclude both self AND directed offices from CC dropdown
+  const deptOptionsForCCExcludeSelf = deptOptionsExcludeSelf.filter(d => !directedSet.has(String(d.value)))
+
+  const update = (k, v) => {
+    setForm(prev => {
+      const next = { ...prev, [k]: v }
+      // Force source=INTERNAL when doc_type is MEMO
+      if (k === 'doc_type' && v === 'MEMO') {
+        next.source = 'INTERNAL'
+        setMemoDirection('OPTION_1')
+      }
+      return next
+    })
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -205,7 +221,15 @@ export default function DocumentForm() {
                 <span className="font-medium dark:text-white"><EthDateDisplay date={existingDoc.received_date || existingDoc.written_date} inline /></span>
               </div>
               <div className="md:col-span-2"><span className="text-slate-500 dark:text-slate-400">{t('subject')}:</span> <span className="font-medium dark:text-white">{existingDoc.subject}</span></div>
-              <div><span className="text-slate-500 dark:text-slate-400">{t('from')}:</span> <span className="font-medium dark:text-white">{existingDoc.company_office_name || existingDoc.co_office_names?.join(', ') || (existingDoc.department_name ? `${existingDoc.department_code} - ${existingDoc.department_name}` : null) || '-'}</span></div>
+              <div><span className="text-slate-500 dark:text-slate-400">{t('from')}:</span> <span className="font-medium dark:text-white">{
+                existingDoc.company_office_name
+                || (existingDoc.department_name ? `${existingDoc.department_code} - ${existingDoc.department_name}` : null)
+                || existingDoc.co_office_names?.join(', ')
+                || '-'
+              }</span></div>
+              {existingDoc.department_name && existingDoc.co_office_names?.length > 0 && (
+                <div><span className="text-slate-500 dark:text-slate-400">{t('cc_cxo')}:</span> <span className="font-medium dark:text-white">{existingDoc.co_office_names.join(', ')}</span></div>
+              )}
               <div><span className="text-slate-500 dark:text-slate-400">{t('status')}:</span> <span className="font-medium dark:text-white">{existingDoc.status}</span></div>
             </div>
           </div>
@@ -277,16 +301,16 @@ export default function DocumentForm() {
             {form.doc_type === 'MEMO' && (
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('direction')}</label>
-                <select className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" value={form.source} onChange={(e)=>update('source', e.target.value)}>
+                <select className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" value={memoDirection} onChange={(e)=>setMemoDirection(e.target.value)}>
                   {isCeoLevel ? (
                     <>
-                      <option value="INTERNAL">{t('memo_incoming_ceo')}</option>
-                      <option value="EXTERNAL">{t('memo_outgoing_ceo')}</option>
+                      <option value="OPTION_1">{t('memo_incoming_ceo')}</option>
+                      <option value="OPTION_2">{t('memo_outgoing_ceo')}</option>
                     </>
                   ) : (
                     <>
-                      <option value="INTERNAL">{t('memo_to_cxo')}</option>
-                      <option value="EXTERNAL">{t('memo_to_ceo')}</option>
+                      <option value="OPTION_1">{t('memo_to_cxo')}</option>
+                      <option value="OPTION_2">{t('memo_to_ceo')}</option>
                     </>
                   )}
                 </select>
@@ -323,7 +347,7 @@ export default function DocumentForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                <MultiSelect options={deptOptionsForCC} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('ceo_note')}</label>
@@ -379,6 +403,14 @@ export default function DocumentForm() {
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.subject} onChange={(e)=>update('subject', e.target.value)} />
               </div>
               <div>
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
+                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_external')}</label>
+                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.cc_external_names} onChange={(e)=>update('cc_external_names', e.target.value)} placeholder={t('ph_cc_external')} />
+              </div>
+              <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('signature_name')}</label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.signature_name} onChange={(e)=>update('signature_name', e.target.value)} />
               </div>
@@ -413,7 +445,7 @@ export default function DocumentForm() {
         )}
 
         {/* Scenario 5: Incoming Memo (From CxO Offices to CEO) */}
-        {form.doc_type === 'MEMO' && form.source === 'INTERNAL' && (
+        {form.doc_type === 'MEMO' && memoDirection === 'OPTION_1' && (
           <div className="border border-teal-200 dark:border-teal-800 rounded-xl p-4 bg-teal-50 dark:bg-teal-900/20">
             <div className="font-semibold mb-3 text-teal-900 dark:text-teal-300">{t('scenario_5')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -426,12 +458,16 @@ export default function DocumentForm() {
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.subject} onChange={(e)=>update('subject', e.target.value)} />
               </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('direct_to_cxo')}</label>
+                <MultiSelect options={deptOptionsForCC} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
+              </div>
             </div>
           </div>
         )}
 
         {/* Scenario 6: Outgoing Memo (From CEO to CxO Offices) */}
-        {form.doc_type === 'MEMO' && form.source === 'EXTERNAL' && (
+        {form.doc_type === 'MEMO' && memoDirection === 'OPTION_2' && (
           <div className="border border-amber-200 dark:border-amber-800 rounded-xl p-4 bg-amber-50 dark:bg-amber-900/20">
             <div className="font-semibold mb-3 text-amber-900 dark:text-amber-300">{t('scenario_6')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -516,6 +552,14 @@ export default function DocumentForm() {
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.subject} onChange={(e)=>update('subject', e.target.value)} />
               </div>
               <div>
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_and_ceo')}</label>
+                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_external')}</label>
+                <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.cc_external_names} onChange={(e)=>update('cc_external_names', e.target.value)} placeholder={t('ph_cc_external')} />
+              </div>
+              <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('signature_name')}</label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.signature_name} onChange={(e)=>update('signature_name', e.target.value)} />
               </div>
@@ -570,7 +614,7 @@ export default function DocumentForm() {
               {!form.requires_ceo_direction && (
                 <div>
                   <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
-                  <MultiSelect options={deptOptionsExcludeSelf} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                  <MultiSelect options={deptOptionsForCCExcludeSelf} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
                 </div>
               )}
             </div>
@@ -578,7 +622,7 @@ export default function DocumentForm() {
         )}
 
         {/* Scenario 12: Memo from CxO to other CxO offices */}
-        {form.doc_type === 'MEMO' && form.source === 'INTERNAL' && (
+        {form.doc_type === 'MEMO' && memoDirection === 'OPTION_1' && (
           <div className="border border-teal-200 dark:border-teal-800 rounded-xl p-4 bg-teal-50 dark:bg-teal-900/20">
             <div className="font-semibold mb-3 text-teal-900 dark:text-teal-300">{t('scenario_12')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -593,14 +637,14 @@ export default function DocumentForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
-                <MultiSelect options={deptOptionsExcludeSelf} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                <MultiSelect options={deptOptionsForCCExcludeSelf} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
             </div>
           </div>
         )}
 
         {/* Scenario 13: Memo from CxO to CEO */}
-        {form.doc_type === 'MEMO' && form.source === 'EXTERNAL' && (
+        {form.doc_type === 'MEMO' && memoDirection === 'OPTION_2' && (
           <div className="border border-amber-200 dark:border-amber-800 rounded-xl p-4 bg-amber-50 dark:bg-amber-900/20">
             <div className="font-semibold mb-3 text-amber-900 dark:text-amber-300">{t('scenario_13')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
