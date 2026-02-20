@@ -177,6 +177,7 @@ backend/
 - `ref_no` — Unique reference number
 - `subject`, `summary` — Document content
 - `company_office_name` — External party name (for external scenarios)
+- `cc_external_names` — Free-text external CC names (used for outgoing external letters; stored as comma-separated text)
 - `co_offices` (M2M → Department) — CC'd offices or originating office (context-dependent)
 - `directed_offices` (M2M → Department) — Primary recipient offices
 - `status` — Current workflow status
@@ -202,7 +203,7 @@ backend/
 
 | Serializer | Purpose |
 |-----------|---------|
-| `DocumentListSerializer` | Lightweight list view (id, ref_no, type, source, subject, status, priority, date, department) |
+| `DocumentListSerializer` | Lightweight list view (id, ref_no, type, source, subject, status, priority, date, department) + `perspective_direction` (incoming/outgoing from viewer’s perspective) |
 | `DocumentDetailSerializer` | Full detail with computed fields: `scenario`, `pending_receipts`, `pending_acknowledgments`, `user_can_acknowledge`, `user_can_receive`, office names |
 | `DocumentCreateSerializer` | Creation with validation per scenario, attachment handling, activity logging |
 | `DocumentUpdateSerializer` | Status progression and field updates |
@@ -214,8 +215,8 @@ CEO-level (department is null):
   INCOMING + INTERNAL → S2
   OUTGOING + EXTERNAL → S3
   OUTGOING + INTERNAL → S4
-  MEMO + has directed_offices → S6
-  MEMO + no directed_offices → S5
+  MEMO + has co_offices → S5   (incoming memo from CxO; originating office stored in co_offices)
+  MEMO + no co_offices → S6    (outgoing memo from CEO)
 
 CxO-level (department is set):
   INCOMING + EXTERNAL → S7
@@ -463,6 +464,12 @@ REGISTERED → RECEIVED → IN_PROGRESS/CLOSED
                        → RESPONDED → CLOSED
 ```
 
+**S5 (Forwarding Variant):** When CEO Secretary selects `directed_offices` for an S5 memo, it follows:
+```
+REGISTERED → DISPATCHED → RECEIVED → IN_PROGRESS/CLOSED
+                                   → RESPONDED → CLOSED
+```
+
 **S3, S9 (External Outgoing — Register & Close):**
 ```
 REGISTERED → CLOSED
@@ -500,6 +507,8 @@ REGISTERED → CLOSED
 - Translations defined inline in `frontend/src/i18n.js`
 - Two supported languages: English (`en`) and Amharic (`am`)
 - Language persisted via `i18next` (localStorage by default)
+
+Default language is configured to **Amharic** (`lng: 'am'`, `fallbackLng: 'am'`).
 
 ### 8.2 Translation Scope
 - All UI labels, button text, placeholders, error messages
@@ -780,7 +789,7 @@ POST   /api/core/users/{id}/reset_password/  # Reset password
 #### List
 ```
 GET /api/documents/documents/?q=...&doc_type=...&source=...&status=...&co_office=1,2&directed_office=3&date_from=2025-01-01&date_to=2025-12-31
-Response: [{ "id": 1, "ref_no": "CEO/001/18", "doc_type": "INCOMING", "source": "EXTERNAL", "subject": "...", "status": "REGISTERED", "priority": "NORMAL", "registered_at": "...", "department_name": null }, ...]
+Response: [{ "id": 1, "ref_no": "CEO/001/18", "doc_type": "INCOMING", "source": "EXTERNAL", "subject": "...", "status": "REGISTERED", "priority": "NORMAL", "registered_at": "...", "department_name": null, "perspective_direction": "INCOMING" }, ...]
 ```
 
 #### Create

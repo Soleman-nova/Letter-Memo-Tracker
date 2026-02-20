@@ -176,6 +176,7 @@ export default function DocumentsList() {
             <tr className="text-left border-b dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
               <th className="py-3 px-4 dark:text-slate-300">{t('ref_no')}</th>
               <th className="px-4 dark:text-slate-300">{t('type')}</th>
+              <th className="px-4 dark:text-slate-300">{t('direction')}</th>
               <th className="px-4 dark:text-slate-300">{t('source')}</th>
               <th className="px-4 dark:text-slate-300">{t('office')}</th>
               <th className="px-4 dark:text-slate-300">{t('subject')}</th>
@@ -199,6 +200,11 @@ export default function DocumentsList() {
                 OUTGOING: 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
                 MEMO: 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
               }
+              const directionColors = {
+                INCOMING: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+                OUTGOING: 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+              }
+              const directionLabel = d.perspective_direction === 'OUTGOING' ? t('outgoing') : t('incoming')
               return (
               <tr key={d.id} className="border-b dark:border-slate-700 hover:bg-slate-50/60 dark:hover:bg-slate-700/50">
                 <td className="py-3 px-4">
@@ -207,6 +213,7 @@ export default function DocumentsList() {
                   {d.priority === 'HIGH' && <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">HIGH</span>}
                 </td>
                 <td className="px-4"><span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${typeColors[d.doc_type] || ''}`}>{d.doc_type}</span></td>
+                <td className="px-4"><span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${directionColors[d.perspective_direction] || ''}`}>{directionLabel}</span></td>
                 <td className="px-4 dark:text-slate-300 text-xs">{d.source === 'INTERNAL' ? t('internal') : t('external')}</td>
                 <td className="px-4 dark:text-slate-300 text-xs">{d.department_name || 'CEO Office'}</td>
                 <td className="px-4 dark:text-slate-300 max-w-xs truncate">{d.subject}</td>
@@ -216,7 +223,7 @@ export default function DocumentsList() {
               )
             }) : (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-slate-500 dark:text-slate-400">{t('no_documents')}</td>
+                <td colSpan={8} className="py-8 text-center text-slate-500 dark:text-slate-400">{t('no_documents')}</td>
               </tr>
             )}
           </tbody>

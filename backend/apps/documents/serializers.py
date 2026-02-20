@@ -58,10 +58,102 @@ class DocumentReceiptSerializer(serializers.ModelSerializer):
 
 class DocumentListSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source='department.name', read_only=True, default=None)
+    perspective_direction = serializers.SerializerMethodField()
 
     class Meta:
         model = Document
-        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'status', 'priority', 'registered_at', 'department_name']
+        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'status', 'priority', 'registered_at', 'department_name', 'perspective_direction']
+
+    def _get_scenario(self, obj):
+        """Determine scenario number for a document (kept in sync with DocumentDetailSerializer/ViewSet logic)."""
+        dt = obj.doc_type
+        src = obj.source
+        dept = obj.department
+        is_ceo_level = dept is None
+
+        if dt == 'INCOMING' and src == 'EXTERNAL' and is_ceo_level:
+            return 1
+        if dt == 'INCOMING' and src == 'INTERNAL' and is_ceo_level:
+            return 2
+        if dt == 'OUTGOING' and src == 'EXTERNAL' and is_ceo_level:
+            return 3
+        if dt == 'OUTGOING' and src == 'INTERNAL' and is_ceo_level:
+            return 4
+        if dt == 'MEMO' and is_ceo_level:
+            if obj.co_offices.exists():
+                return 5
+            return 6
+        if dt == 'INCOMING' and src == 'EXTERNAL' and not is_ceo_level:
+            return 7
+        if dt == 'INCOMING' and src == 'INTERNAL' and not is_ceo_level:
+            return 8
+        if dt == 'OUTGOING' and src == 'EXTERNAL' and not is_ceo_level:
+            return 9
+        if dt == 'OUTGOING' and src == 'INTERNAL' and not is_ceo_level:
+            if getattr(obj, 'requires_ceo_direction', False):
+                return 14
+            if obj.directed_offices.exists():
+                return 11
+            return 10
+        if dt == 'MEMO' and not is_ceo_level:
+            if obj.directed_offices.exists():
+                return 12
+            return 13
+        return 0
+
+    def get_perspective_direction(self, obj):
+        """Incoming/Outgoing from the current user's perspective.
+
+        - CEO Secretary: CEO-originated letters/memos are OUTGOING for them; CxO-originated letters/memos sent to CEO are INCOMING.
+        - CxO Secretary: documents created by their department are OUTGOING; documents sent/CC'd to their dept are INCOMING.
+        """
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return obj.doc_type
+
+        user = request.user
+        profile = getattr(user, 'profile', None)
+        role = getattr(profile, 'role', None)
+        dept_id = getattr(profile, 'department_id', None)
+
+        scenario = self._get_scenario(obj)
+
+        # CEO-level view
+        if role in ['CEO_SECRETARY', 'SUPER_ADMIN', 'CEO']:
+            # CEO-originated outgoing letters/memos (to CxO or external)
+            if scenario in [3, 4, 6]:
+                return 'OUTGOING'
+
+            # CEO-directed incoming letters become outgoing once directed (CEO Secretary dispatches to CxO)
+            if scenario in [1, 2, 14] and obj.status in ['DIRECTED', 'DISPATCHED', 'RECEIVED', 'IN_PROGRESS', 'RESPONDED', 'CLOSED']:
+                return 'OUTGOING'
+
+            # S5: incoming memo from CxO can be forwarded by CEO Secretary to directed offices
+            if scenario == 5 and obj.directed_offices.exists():
+                return 'OUTGOING'
+
+            # Everything else that surfaces to CEO level is treated as incoming
+            return 'INCOMING'
+
+        # CxO-level view
+        if role in ['CXO_SECRETARY', 'CXO'] and dept_id:
+            # Documents created by their department
+            if obj.department_id == dept_id:
+                return 'OUTGOING'
+
+            # Directed to their department
+            if obj.directed_offices.filter(id=dept_id).exists():
+                return 'INCOMING'
+
+            # CC'd to their department
+            if obj.co_offices.filter(id=dept_id).exists():
+                # S5: co_offices represents the originating office (CxO -> CEO memo)
+                if scenario == 5:
+                    return 'OUTGOING'
+                return 'INCOMING'
+
+        # Default fallback
+        return obj.doc_type
 
 
 class DocumentDetailSerializer(serializers.ModelSerializer):

@@ -89,8 +89,8 @@ The system supports 14 distinct document scenarios, split between CEO-level and 
 | S2 | Internal Incoming to CEO | INCOMING | INTERNAL | Letter from CxO Office → CEO Office |
 | S3 | External Outgoing from CEO | OUTGOING | EXTERNAL | Letter from CEO Office → Outside company |
 | S4 | Internal Outgoing from CEO | OUTGOING | INTERNAL | Letter from CEO Office → CxO Office(s) |
-| S5 | Incoming Memo to CEO | MEMO | INTERNAL | Memo from CxO Office → CEO (no directed_offices) |
-| S6 | Outgoing Memo from CEO | MEMO | INTERNAL | Memo from CEO → CxO Office(s) (has directed_offices) |
+| S5 | Incoming Memo to CEO | MEMO | INTERNAL | Memo from CxO Office → CEO Office (origin stored in co_offices; can be forwarded by CEO Secretary via directed_offices) |
+| S6 | Outgoing Memo from CEO | MEMO | INTERNAL | Memo from CEO → CxO Office(s) (no co_offices; directed_offices are the recipients) |
 
 ### 4.2 CxO-Level Scenarios (Created by CxO Secretary)
 
@@ -106,7 +106,9 @@ The system supports 14 distinct document scenarios, split between CEO-level and 
 | S14 | Internal to CEO with Direction | OUTGOING | INTERNAL | Letter from CxO Office → CEO for direction → CxO Office(s) |
 
 ### 4.3 Scenario Detection Logic
-- **Memos (S5/S6, S12/S13):** Differentiated by presence of `directed_offices` (not by source field). Memos always have `source = INTERNAL`.
+- **Memos (S5/S6, S12/S13):** Memos always have `source = INTERNAL`. CEO-level memos are differentiated using `co_offices`:
+  - S5 if `co_offices` exist (originating CxO office)
+  - S6 if `co_offices` do not exist (outgoing memo from CEO)
 - **CxO Outgoing Internal (S10/S11/S14):** S14 if `requires_ceo_direction = true`; S11 if `directed_offices` exist; S10 otherwise.
 
 ---
@@ -133,6 +135,9 @@ The system supports 14 distinct document scenarios, split between CEO-level and 
 | S5, S7, S10, S13 | REGISTERED → RECEIVED → [IN_PROGRESS → RESPONDED →] CLOSED |
 | S3, S9 | REGISTERED → CLOSED |
 
+Note: **S5 forwarding** is supported when CEO Secretary selects `directed_offices`. In that case, S5 follows:
+`REGISTERED → DISPATCHED → RECEIVED → ...` for the directed CxO office(s).
+
 ### 5.3 Receipt Tracking
 - **Directed offices receive:** For S1, S2, S4, S6, S8, S11, S12, S14 — each directed CxO office must individually mark as received.
 - **CEO Office receives:** For S5, S10, S13 — CEO Secretary marks receipt on behalf of CEO Office.
@@ -141,7 +146,7 @@ The system supports 14 distinct document scenarios, split between CEO-level and 
 
 ### 5.4 CC Acknowledgment (Mark as Seen)
 - CC'd offices (via `co_offices`) can acknowledge/mark a document as "seen."
-- Applicable in scenarios: S1, S2, S4, S6, S8, S10, S11, S12, S13, S14.
+- Applicable in scenarios: S1, S2, S3, S4, S6, S8, S9, S10, S11, S12, S13, S14.
 - Only CxO Secretaries of CC'd departments can acknowledge.
 
 ---
@@ -170,6 +175,7 @@ The system supports 14 distinct document scenarios, split between CEO-level and 
 - **FR-DOC-04:** Reference number format includes a prefix and sequence number per department, doc type, and EC year.
 - **FR-DOC-05:** All documents require: reference number, subject, EC year, and scenario-specific required fields.
 - **FR-DOC-06:** Documents may optionally include: summary, priority, confidentiality, due date, and file attachments.
+- **FR-DOC-06b:** External outgoing letters can optionally include external CC names (`cc_external_names`) in addition to CC offices.
 - **FR-DOC-07:** Memo documents shall always have `source = INTERNAL`. The direction (incoming/outgoing) is determined by the presence of `directed_offices`.
 
 ### 6.4 Document Direction (CEO Workflow)
@@ -200,6 +206,7 @@ The system supports 14 distinct document scenarios, split between CEO-level and 
 - **FR-LST-02:** Filters: document type, source (External/Internal), status, source/originating CxO office, directed/destination CxO office, date range, free-text search.
 - **FR-LST-03:** Free-text search covers: reference number, subject, sender name, receiver name.
 - **FR-LST-04:** Results are paginated (configurable: 10, 25, 50, 100 per page).
+- **FR-LST-05:** Document list shall display a **Direction** indicator that is computed from the viewer's perspective (incoming vs outgoing) so the same document can appear outgoing for the sending secretary and incoming for recipients/CC offices.
 
 ### 6.9 Document Detail View
 - **FR-DET-01:** Display all document fields, scenario label, and workflow progress.
@@ -229,6 +236,7 @@ The system supports 14 distinct document scenarios, split between CEO-level and 
 - **NFR-I18N-02:** Language switch shall be available from the top navigation bar.
 - **NFR-I18N-03:** Department names shall be localized using JSON translation files.
 - **NFR-I18N-04:** All UI labels, messages, and placeholders shall be translatable.
+- **NFR-I18N-05:** The default (primary) UI language shall be Amharic.
 
 ### 7.2 Calendar System
 - **NFR-CAL-01:** System shall support the Ethiopian calendar (primary) and Gregorian calendar.
