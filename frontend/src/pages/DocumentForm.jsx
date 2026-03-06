@@ -118,15 +118,26 @@ export default function DocumentForm() {
     return { value: String(d.id), label: `${d.code} - ${localLabel}` }
   })
 
+  const ceoDeptId = departments.find(d => String(d.code || '').trim().toUpperCase() === 'CEO')?.id
+  const deptOptionsExcludeCEO = deptOptions.filter(d => String(d.value) !== String(ceoDeptId))
+
   // For CxO outgoing: exclude the user's own department from dropdowns
   const deptOptionsExcludeSelf = deptOptions.filter(d => String(d.value) !== String(userDeptId))
+
+  const deptOptionsExcludeSelfAndCEO = deptOptions.filter(d => (
+    String(d.value) !== String(userDeptId) && String(d.value) !== String(ceoDeptId)
+  ))
 
   // For CEO outgoing: exclude directed offices from CC dropdown
   const directedSet = new Set((form.directed_offices || []).map(String))
   const deptOptionsForCC = deptOptions.filter(d => !directedSet.has(String(d.value)))
 
+  const deptOptionsForCCExcludeCEO = deptOptionsForCC.filter(d => String(d.value) !== String(ceoDeptId))
+
   // For CxO scenarios: exclude both self AND directed offices from CC dropdown
   const deptOptionsForCCExcludeSelf = deptOptionsExcludeSelf.filter(d => !directedSet.has(String(d.value)))
+
+  const deptOptionsForCCExcludeSelfAndCEO = deptOptionsExcludeSelfAndCEO.filter(d => !directedSet.has(String(d.value)))
 
   const update = (k, v) => {
     setForm(prev => {
@@ -240,7 +251,7 @@ export default function DocumentForm() {
               <EthiopianDateInput label={t('ceo_directed_date')} value={form.ceo_directed_date} onChange={(v)=>update('ceo_directed_date', v)} required />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('direct_to_cxo')} <span className="text-red-500">*</span></label>
-                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
+                <MultiSelect options={deptOptionsExcludeCEO} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('ceo_note')}</label>
@@ -343,11 +354,11 @@ export default function DocumentForm() {
               <EthiopianDateInput label={t('ceo_directed_date')} value={form.ceo_directed_date} onChange={(v)=>update('ceo_directed_date', v)} />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('direct_to_cxo')}</label>
-                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
+                <MultiSelect options={deptOptionsExcludeCEO} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
-                <MultiSelect options={deptOptionsForCC} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                <MultiSelect options={deptOptionsForCCExcludeCEO} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('ceo_note')}</label>
@@ -365,7 +376,7 @@ export default function DocumentForm() {
               <EthiopianDateInput label={t('received_date')} value={form.received_date} onChange={(v)=>update('received_date', v)} required />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('from_office_cxo')} <span className="text-red-500">*</span></label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_originating')} />
+                <MultiSelect options={deptOptionsExcludeCEO} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_originating')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
@@ -374,11 +385,11 @@ export default function DocumentForm() {
               <EthiopianDateInput label={t('ceo_directed_date')} value={form.ceo_directed_date} onChange={(v)=>update('ceo_directed_date', v)} />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('direct_to_cxo')}</label>
-                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
+                <MultiSelect options={deptOptionsExcludeCEO} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                <MultiSelect options={deptOptionsExcludeCEO} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('ceo_note')}</label>
@@ -404,7 +415,7 @@ export default function DocumentForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                <MultiSelect options={deptOptionsExcludeCEO} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_external')}</label>
@@ -426,7 +437,7 @@ export default function DocumentForm() {
               <EthiopianDateInput label={t('written_date')} value={form.written_date} onChange={(v)=>update('written_date', v)} required />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('to_cxo_offices')} <span className="text-red-500">*</span></label>
-                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_cxo')} />
+                <MultiSelect options={deptOptionsExcludeCEO} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_cxo')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
@@ -438,7 +449,7 @@ export default function DocumentForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_other_cxo_optional')}</label>
-                <MultiSelect options={deptOptionsForCC} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                <MultiSelect options={deptOptionsForCCExcludeCEO} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
             </div>
           </div>
@@ -452,7 +463,7 @@ export default function DocumentForm() {
               <EthiopianDateInput label={t('memo_date')} value={form.memo_date} onChange={(v)=>update('memo_date', v)} required />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('from_office_cxo')} <span className="text-red-500">*</span></label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_originating')} />
+                <MultiSelect options={deptOptionsExcludeCEO} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_originating')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
@@ -460,7 +471,7 @@ export default function DocumentForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('direct_to_cxo')}</label>
-                <MultiSelect options={deptOptionsForCC} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
+                <MultiSelect options={deptOptionsForCCExcludeCEO} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
               </div>
             </div>
           </div>
@@ -474,7 +485,7 @@ export default function DocumentForm() {
               <EthiopianDateInput label={t('memo_date')} value={form.memo_date} onChange={(v)=>update('memo_date', v)} required />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('to_cxo_offices')} <span className="text-red-500">*</span></label>
-                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_cxo')} />
+                <MultiSelect options={deptOptionsExcludeCEO} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_cxo')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
@@ -486,7 +497,7 @@ export default function DocumentForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_other_cxo_optional')}</label>
-                <MultiSelect options={deptOptionsForCC} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                <MultiSelect options={deptOptionsForCCExcludeCEO} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
             </div>
           </div>
@@ -523,7 +534,7 @@ export default function DocumentForm() {
               <EthiopianDateInput label={t('received_date')} value={form.received_date} onChange={(v)=>update('received_date', v)} required />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('from_sending_cxo')}</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_sending')} />
+                <MultiSelect options={deptOptionsExcludeSelfAndCEO} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_sending')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
@@ -531,7 +542,7 @@ export default function DocumentForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('forward_to_cxo')}</label>
-                <MultiSelect options={deptOptions} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_forward')} />
+                <MultiSelect options={deptOptionsExcludeSelf} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_forward')} />
               </div>
             </div>
           </div>
@@ -553,7 +564,7 @@ export default function DocumentForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_and_ceo')}</label>
-                <MultiSelect options={deptOptions} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                <MultiSelect options={deptOptionsExcludeSelf} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_external')}</label>
@@ -629,7 +640,7 @@ export default function DocumentForm() {
               <EthiopianDateInput label={t('memo_date')} value={form.memo_date} onChange={(v)=>update('memo_date', v)} required />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('to_dest_cxo')} <span className="text-red-500">*</span></label>
-                <MultiSelect options={deptOptionsExcludeSelf} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_dest')} />
+                <MultiSelect options={deptOptionsExcludeSelfAndCEO} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_dest')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
@@ -637,7 +648,7 @@ export default function DocumentForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
-                <MultiSelect options={deptOptionsForCCExcludeSelf} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
+                <MultiSelect options={deptOptionsForCCExcludeSelfAndCEO} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
             </div>
           </div>

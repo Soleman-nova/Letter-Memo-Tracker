@@ -86,6 +86,21 @@ After logging in, you'll see the main dashboard with:
 - **Status Summary**: Overview of document statuses
 - **Language Toggle**: Switch between English and Amharic
 
+### Document Detail View
+
+When you click on any document in the list, you’ll see the **Document Detail** page with:
+- **Document Information**: All fields, scenario label, and attachments
+- **Workflow Progress**: Visual steps showing current status and next actions
+- **Action Buttons**: Contextual buttons based on your role and document status (e.g., Dispatch, Mark Received, Mark as Seen, In Progress, Close)
+- **Delivery Status**: Which offices have received the document vs. pending
+- **CC Acknowledgments**: Which CC’d offices have marked the document as “Seen”
+- **Timeline**: A unified, chronological list of all Activities, Receipts, and CC Acknowledgments
+  - Ethiopian date is shown as primary; Gregorian date appears in parentheses
+  - Time is included for each event
+  - Use the dropdown to filter by event type (All / Activities / Receipts / Acknowledgments)
+  - Use the search box to filter by text (action, notes, actor, office)
+- **Export Audit Log**: Click this button to download a CSV file containing an immutable audit trail of all events for this document (Activities, Receipts, Acknowledgments) with timestamps and actors
+
 ### First-Time Setup
 1. **Profile Verification**: Ensure your department and role are correct
 2. **Password Change**: Change your default password if required
@@ -366,7 +381,7 @@ This helps the same document appear correctly for different offices.
 
 ---
 
-## Reporting and Analytics
+### Reporting and Analytics
 
 ### Available Reports
 
@@ -387,6 +402,23 @@ This helps the same document appear correctly for different offices.
 - **Action Summary**: Actions taken by different roles
 - **Login Activity**: User access patterns and frequency
 - **Department Performance**: Comparative analysis
+
+### Audit and Compliance
+
+#### Timeline and Audit Log
+- Every document has a **Timeline** on its detail page that shows all Activities, Receipts, and CC Acknowledgments in chronological order.
+- Ethiopian date is shown as primary; Gregorian date appears in parentheses; time is included.
+- You can filter the Timeline by event type or search by text.
+- Click **Export Audit Log (CSV)** to download an immutable audit trail for compliance or external review.
+
+#### What’s Included in the CSV Export
+- Reference number
+- Event type (activity / receipt / acknowledgment)
+- Action description
+- Department (if applicable)
+- Actor (user who performed the action)
+- Timestamp (ISO 8601)
+- Notes (if any)
 
 ### Generating Reports
 1. **Access Reports**: Click "Reports" in the navigation menu

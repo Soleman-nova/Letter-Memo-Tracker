@@ -3,6 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q
+from django.http import HttpResponse
+import csv
 from .models import Document, Attachment, Activity, DocumentAcknowledgment, DocumentReceipt
 from .serializers import DocumentListSerializer, DocumentDetailSerializer, DocumentCreateSerializer, DocumentUpdateSerializer, AttachmentSerializer
 from apps.core.models import UserProfile, Department
@@ -60,7 +62,13 @@ class DocumentViewSet(viewsets.ModelViewSet):
         co_offices_list = self.request.query_params.getlist('co_offices')
         directed_offices_list = self.request.query_params.getlist('directed_offices')
         if q:
-            qs = qs.filter(Q(ref_no__icontains=q) | Q(subject__icontains=q) | Q(sender_name__icontains=q) | Q(receiver_name__icontains=q))
+            qs = qs.filter(
+                Q(ref_no__icontains=q) |
+                Q(subject__icontains=q) |
+                Q(sender_name__icontains=q) |
+                Q(receiver_name__icontains=q) |
+                Q(company_office_name__icontains=q)
+            )
         source_param = self.request.query_params.get('source')
         if doc_type:
             qs = qs.filter(doc_type=doc_type)
@@ -112,6 +120,78 @@ class DocumentViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You don't have permission to view this document")
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def audit_export(self, request, pk=None):
+        """Export an immutable audit log for this document as CSV."""
+        document = self.get_object()
+        profile = request.user.profile
+        if not profile.can_view_document(document):
+            raise PermissionDenied("You don't have permission to view this document")
+
+        activities = list(
+            Activity.objects.filter(document=document)
+            .select_related('actor')
+            .order_by('created_at')
+        )
+        receipts = list(
+            DocumentReceipt.objects.filter(document=document)
+            .select_related('department', 'received_by')
+            .order_by('received_at')
+        )
+        acknowledgments = list(
+            DocumentAcknowledgment.objects.filter(document=document)
+            .select_related('department', 'acknowledged_by')
+            .order_by('acknowledged_at')
+        )
+
+        events = []
+        for a in activities:
+            events.append({
+                'timestamp': a.created_at,
+                'event_type': 'activity',
+                'action': a.action,
+                'actor': (a.actor.get_full_name() or a.actor.username) if a.actor else '',
+                'department': '',
+                'notes': a.notes or '',
+            })
+        for r in receipts:
+            events.append({
+                'timestamp': r.received_at,
+                'event_type': 'receipt',
+                'action': 'received',
+                'actor': (r.received_by.get_full_name() or r.received_by.username) if r.received_by else '',
+                'department': getattr(r.department, 'code', '') or getattr(r.department, 'name', '') or '',
+                'notes': '',
+            })
+        for a in acknowledgments:
+            events.append({
+                'timestamp': a.acknowledged_at,
+                'event_type': 'acknowledgment',
+                'action': 'acknowledged',
+                'actor': (a.acknowledged_by.get_full_name() or a.acknowledged_by.username) if a.acknowledged_by else '',
+                'department': getattr(a.department, 'code', '') or getattr(a.department, 'name', '') or '',
+                'notes': '',
+            })
+
+        events.sort(key=lambda e: e['timestamp'] or '')
+
+        filename = f"audit_{document.ref_no}".replace('/', '_').replace(' ', '_') + ".csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        writer = csv.writer(response)
+        writer.writerow(['ref_no', 'event_type', 'action', 'department', 'actor', 'timestamp', 'notes'])
+        for e in events:
+            writer.writerow([
+                document.ref_no,
+                e['event_type'],
+                e['action'],
+                e['department'],
+                e['actor'],
+                (e['timestamp'].isoformat() if e['timestamp'] else ''),
+                e['notes'],
+            ])
+        return response
 
     def update(self, request, *args, **kwargs):
         """Check edit permission before updating"""

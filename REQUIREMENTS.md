@@ -215,6 +215,8 @@ Note: **S5 forwarding** is supported when CEO Secretary selects `directed_office
 - **FR-DET-04:** Display activity log (all status changes, attachments, acknowledgments).
 - **FR-DET-05:** Display attached files with download links.
 - **FR-DET-06:** Show contextual action buttons based on current status, scenario, and user role.
+- **FR-DET-07:** Unified Timeline view that merges Activities, Receipts, and CC Acknowledgments in chronological order, with Ethiopian date as primary and Gregorian as secondary (including time), and supports filtering by event type and free-text search.
+- **FR-DET-08:** Immutable audit log export per document as CSV, available from the Document Detail page, containing a merged, chronological list of all Activities, Receipts, and Acknowledgments with timestamps, actors, and notes.
 
 ### 6.10 Attachments
 - **FR-ATT-01:** File uploads supported during document creation.
@@ -336,6 +338,7 @@ Note: **S5 forwarding** is supported when CEO Secretary selects `directed_office
 | POST | `/api/documents/documents/{id}/mark_received/` | Mark as received |
 | POST | `/api/documents/documents/{id}/acknowledge/` | Mark CC as seen |
 | POST | `/api/documents/documents/{id}/attachments/` | Upload attachments |
+| GET | `/api/documents/documents/{id}/audit_export/` | Export immutable audit log (CSV) |
 
 ### 9.4 Query Parameters (Document List)
 `q`, `doc_type`, `source`, `status`, `department`, `co_office`, `directed_office`, `date_from`, `date_to`

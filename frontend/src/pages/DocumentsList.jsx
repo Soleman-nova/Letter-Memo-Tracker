@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api'
 import { useTranslation } from 'react-i18next'
 import MultiSelect from '../components/MultiSelect'
 import departmentsEn from '../../Data/Department-en.json'
 import departmentsAm from '../../Data/Department-am.json'
-import { FileText, Search, FilePlus, Filter, Calendar } from 'lucide-react'
+import { FileText, Search, FilePlus, Filter, Calendar, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import EthDateDisplay from '../components/EthDateDisplay'
 import EthiopianDateInput from '../components/EthiopianDateInput'
@@ -26,6 +26,7 @@ export default function DocumentsList() {
   const [dateTo, setDateTo] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const qDebounceRef = useRef(null)
 
   const load = async () => {
     try {
@@ -58,6 +59,19 @@ export default function DocumentsList() {
   useEffect(() => {
     load()
   }, [typeFilter, sourceFilter, statusFilter, coFilter, dirFilter, dateFrom, dateTo])
+
+  // Auto-search on keystrokes (debounced)
+  useEffect(() => {
+    if (qDebounceRef.current) {
+      clearTimeout(qDebounceRef.current)
+    }
+    qDebounceRef.current = setTimeout(() => {
+      load()
+    }, 300)
+    return () => {
+      if (qDebounceRef.current) clearTimeout(qDebounceRef.current)
+    }
+  }, [q])
 
   // Use backend departments with i18n labels from JSON
   const deptData = i18n.language === 'am' ? departmentsAm : departmentsEn
@@ -101,16 +115,64 @@ export default function DocumentsList() {
           <Filter className="w-4 h-4" />
           {t('filters')}
         </div>
+
+        <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setSourceFilter('')}
+            className={`px-3 py-2 text-sm font-medium transition-colors ${
+              !sourceFilter
+                ? 'bg-[#0B3C5D] text-white dark:bg-[#F0B429] dark:text-[#0B3C5D]'
+                : 'bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'
+            }`}
+          >
+            {t('all_sources')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSourceFilter('INTERNAL')}
+            className={`px-3 py-2 text-sm font-medium transition-colors border-l border-slate-200 dark:border-slate-600 ${
+              sourceFilter === 'INTERNAL'
+                ? 'bg-[#0B3C5D] text-white dark:bg-[#F0B429] dark:text-[#0B3C5D]'
+                : 'bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'
+            }`}
+          >
+            {t('internal')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSourceFilter('EXTERNAL')}
+            className={`px-3 py-2 text-sm font-medium transition-colors border-l border-slate-200 dark:border-slate-600 ${
+              sourceFilter === 'EXTERNAL'
+                ? 'bg-[#0B3C5D] text-white dark:bg-[#F0B429] dark:text-[#0B3C5D]'
+                : 'bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'
+            }`}
+          >
+            {t('external')}
+          </button>
+        </div>
+
         <div className="flex flex-wrap gap-3">
           <div className="flex-1 min-w-[200px]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
-                className="border border-slate-200 dark:border-slate-600 rounded-lg pl-9 pr-3 py-2 w-full bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" 
+                className="border border-slate-200 dark:border-slate-600 rounded-lg pl-9 pr-9 py-2 w-full bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" 
                 placeholder={t('search')} 
                 value={q} 
                 onChange={(e)=>setQ(e.target.value)} 
               />
+              {q && (
+                <button
+                  type="button"
+                  onClick={() => setQ('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-500 dark:text-slate-300"
+                  aria-label={t('clear')}
+                  title={t('clear')}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
           <select className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 dark:text-white text-sm" value={typeFilter} onChange={(e)=>{setTypeFilter(e.target.value)}}>
@@ -118,11 +180,6 @@ export default function DocumentsList() {
             <option value="INCOMING">{t('incoming')}</option>
             <option value="OUTGOING">{t('outgoing')}</option>
             <option value="MEMO">{t('memo')}</option>
-          </select>
-          <select className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 dark:text-white text-sm" value={sourceFilter} onChange={(e)=>{setSourceFilter(e.target.value)}}>
-            <option value="">{t('all_sources')}</option>
-            <option value="EXTERNAL">{t('external')}</option>
-            <option value="INTERNAL">{t('internal')}</option>
           </select>
           <select className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 dark:text-white text-sm" value={statusFilter} onChange={(e)=>{setStatusFilter(e.target.value)}}>
             <option value="">{t('all_statuses')}</option>

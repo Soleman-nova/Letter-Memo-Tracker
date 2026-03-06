@@ -246,6 +246,7 @@ CxO-level (department is set):
 | `mark_received` | POST | Creates `DocumentReceipt`, checks all-received, updates status |
 | `acknowledge` | POST | Creates `DocumentAcknowledgment` for CC'd CxO Secretary |
 | `attachments` | POST | Uploads additional files to existing document |
+| `audit_export` | GET | Immutable CSV export of Activities + Receipts + Acknowledgments (chronological) |
 
 **Query Filtering:**
 - `q` — Free-text search (ref_no, subject, sender_name, receiver_name)
@@ -398,6 +399,8 @@ Displays full document information with workflow controls:
   - In Progress, Responded, Close → based on status and edit permission
 - **Delivery Status** card — received vs pending receipts per office
 - **CC Acknowledgments** card — seen vs pending per CC office
+- **Timeline** — Unified, chronological view of Activities, Receipts, and CC Acknowledgments; Ethiopian date primary, Gregorian secondary (including time); filters by event type and free-text search
+- **Export Audit Log** — Button to download immutable CSV of all audit events for the document
 - **Workflow Progress** — visual step indicator per scenario
 - **Attachments** — file download links
 - **Activity Log** — chronological audit trail

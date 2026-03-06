@@ -28,10 +28,10 @@ function NavBar() {
   const logout = () => { clearTokens(); navigate('/') }
   return (
     <header className="h-14 px-4 flex items-center justify-between bg-[#0B3C5D] dark:bg-slate-900 text-white border-b border-[#09324F] dark:border-slate-700">
-      <div className="flex items-center gap-3">
+      <Link to="/dashboard" className="flex items-center gap-3" aria-label={t('app_title')}>
         <img src="/eeu-logo.png" alt="EEU" className="h-8 w-8 rounded-full ring-1 ring-white/20" />
         <span className="font-semibold tracking-tight">{t('app_title')}</span>
-      </div>
+      </Link>
       <div className="flex items-center gap-2">
         <div className="relative group">
           <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors">

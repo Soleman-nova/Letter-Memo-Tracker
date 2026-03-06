@@ -37,36 +37,6 @@ export default function EthiopianDateInput({ label, value, onChange, required = 
 
   const isAmharic = i18n.language === 'am'
 
-  // MUI theme-aware colors
-  const muiSx = {
-    '& .MuiOutlinedInput-root': {
-      borderRadius: '0.5rem',
-      fontSize: '0.875rem',
-      backgroundColor: darkMode ? '#334155' : '#fff',
-      color: darkMode ? '#f1f5f9' : '#1e293b',
-      '& fieldset': {
-        borderColor: darkMode ? '#475569' : '#cbd5e1',
-      },
-      '&:hover fieldset': {
-        borderColor: darkMode ? '#64748b' : '#94a3b8',
-      },
-      '&.Mui-focused fieldset': {
-        borderColor: darkMode ? '#F0B429' : '#0B3C5D',
-        borderWidth: '2px',
-      },
-    },
-    '& .MuiInputBase-input': {
-      padding: '8px 12px',
-      color: darkMode ? '#f1f5f9' : '#1e293b',
-    },
-    '& .MuiIconButton-root': {
-      color: darkMode ? '#94a3b8' : '#64748b',
-    },
-    '& .MuiInputLabel-root': {
-      color: darkMode ? '#94a3b8' : '#64748b',
-    },
-  }
-
   return (
     <div className={className}>
       {label && (
@@ -105,18 +75,12 @@ export default function EthiopianDateInput({ label, value, onChange, required = 
         <div className="flex-1">
           {mode === 'ethiopian' ? (
             <EtLocalizationProvider localType={isAmharic ? 'AMH' : undefined}>
-              <EtDatePicker
-                value={dateValue}
-                onChange={handleChange}
-                slotProps={{
-                  textField: {
-                    size: 'small',
-                    fullWidth: true,
-                    required: required,
-                    sx: muiSx,
-                  },
-                }}
-              />
+              <div className={darkMode ? 'eeu-et-date dark' : 'eeu-et-date'}>
+                <EtDatePicker
+                  value={dateValue}
+                  onChange={handleChange}
+                />
+              </div>
             </EtLocalizationProvider>
           ) : (
             <input

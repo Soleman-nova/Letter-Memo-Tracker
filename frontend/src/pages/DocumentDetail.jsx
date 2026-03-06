@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import api from '../api'
-import { FileText, ArrowLeft, Paperclip, Inbox, Send, FileStack, Edit, CheckCircle, Truck, Eye, Clock, Users } from 'lucide-react'
+import { FileText, ArrowLeft, Paperclip, Inbox, Send, FileStack, Edit, CheckCircle, Truck, Eye, Clock, Users, Download } from 'lucide-react'
 import { useToast } from '../contexts/ToastContext'
 import { useAuth } from '../contexts/AuthContext'
-import EthDateDisplay, { formatEthiopianDate } from '../components/EthDateDisplay'
+import EthDateDisplay from '../components/EthDateDisplay'
 
 export default function DocumentDetail() {
   const { id } = useParams()
@@ -18,6 +18,8 @@ export default function DocumentDetail() {
   const [updating, setUpdating] = useState(false)
   const [acknowledging, setAcknowledging] = useState(false)
   const [receiving, setReceiving] = useState(false)
+  const [timelineFilter, setTimelineFilter] = useState('ALL')
+  const [timelineQuery, setTimelineQuery] = useState('')
   const toast = useToast()
 
   const fetchDoc = (showLoading = false) => {
@@ -30,6 +32,24 @@ export default function DocumentDetail() {
         setError(e.response?.status === 404 ? 'Document not found' : 'Failed to load document')
       })
       .finally(() => setLoading(false))
+  }
+
+  const exportAuditLog = async () => {
+    try {
+      const res = await api.get(`/api/documents/documents/${id}/audit_export/`, { responseType: 'blob' })
+      const blob = new Blob([res.data], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `audit_${doc?.ref_no || id}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error('Failed to export audit log:', e)
+      toast.error(toast.parseApiError(e))
+    }
   }
 
   useEffect(() => {
@@ -99,6 +119,65 @@ export default function DocumentDetail() {
       default: return 'bg-slate-100 text-slate-700'
     }
   }
+
+  const timelineEvents = useMemo(() => {
+    if (!doc) return []
+    const events = []
+
+    ;(doc.activities || []).forEach(a => {
+      events.push({
+        key: `activity_${a.id}`,
+        kind: 'ACTIVITY',
+        action: a.action,
+        notes: a.notes || '',
+        actor: a.actor_name || '',
+        office: '',
+        ts: a.created_at,
+      })
+    })
+
+    ;(doc.receipts || []).forEach(r => {
+      events.push({
+        key: `receipt_${r.id}`,
+        kind: 'RECEIPT',
+        action: 'received',
+        notes: '',
+        actor: r.received_by_name || '',
+        office: r.department_code || r.department_name || '',
+        ts: r.received_at,
+      })
+    })
+
+    ;(doc.acknowledgments || []).forEach(a => {
+      events.push({
+        key: `ack_${a.id}`,
+        kind: 'ACK',
+        action: 'acknowledged',
+        notes: '',
+        actor: a.acknowledged_by_name || '',
+        office: a.department_code || a.department_name || '',
+        ts: a.acknowledged_at,
+      })
+    })
+
+    events.sort((a, b) => {
+      const ta = a.ts ? new Date(a.ts).getTime() : 0
+      const tb = b.ts ? new Date(b.ts).getTime() : 0
+      return tb - ta
+    })
+
+    return events
+  }, [doc])
+
+  const filteredTimelineEvents = useMemo(() => {
+    const q = (timelineQuery || '').trim().toLowerCase()
+    return timelineEvents.filter(e => {
+      if (timelineFilter !== 'ALL' && e.kind !== timelineFilter) return false
+      if (!q) return true
+      const hay = `${e.kind} ${e.action} ${e.notes} ${e.actor} ${e.office}`.toLowerCase()
+      return hay.includes(q)
+    })
+  }, [timelineEvents, timelineFilter, timelineQuery])
 
   if (loading) return (
     <div className="p-8 text-center">
@@ -546,29 +625,73 @@ export default function DocumentDetail() {
         )}
       </div>
 
-      {/* Activity Log */}
-      {doc.activities?.length > 0 && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-4">
-          <h2 className="font-semibold mb-3 flex items-center gap-2 dark:text-white">
-            <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            {t('activity_log')}
+      {/* Timeline */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="font-semibold flex items-center gap-2 dark:text-white">
+            <Clock className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+            Timeline
           </h2>
-          <div className="space-y-2">
-            {doc.activities.map(act => (
-              <div key={act.id} className="flex items-start gap-3 text-sm border-l-2 border-slate-200 dark:border-slate-600 pl-3 py-1">
-                <div className="flex-1">
-                  <span className="font-medium dark:text-white">{act.action}</span>
-                  {act.notes && <span className="text-slate-500 dark:text-slate-400 ml-1">— {act.notes}</span>}
+          <button onClick={exportAuditLog} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600">
+            <Download className="w-4 h-4" />
+            Export Audit Log (CSV)
+          </button>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2 items-center">
+          <select className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 dark:text-white text-sm" value={timelineFilter} onChange={(e) => setTimelineFilter(e.target.value)}>
+            <option value="ALL">All</option>
+            <option value="ACTIVITY">Activities</option>
+            <option value="RECEIPT">Receipts</option>
+            <option value="ACK">Acknowledgments</option>
+          </select>
+          <input
+            className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 dark:text-white text-sm flex-1 min-w-[220px]"
+            placeholder={t('search')}
+            value={timelineQuery}
+            onChange={(e) => setTimelineQuery(e.target.value)}
+          />
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {filteredTimelineEvents.length ? filteredTimelineEvents.map(e => {
+            const badge = e.kind === 'RECEIPT'
+              ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+              : e.kind === 'ACK'
+                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
+
+            const title = e.kind === 'RECEIPT'
+              ? `${t('received')}${e.office ? ` · ${e.office}` : ''}`
+              : e.kind === 'ACK'
+                ? `${t('seen')}${e.office ? ` · ${e.office}` : ''}`
+                : e.action
+
+            const actorPart = e.actor ? `by ${e.actor}` : ''
+
+            return (
+              <div key={e.key} className="flex items-start gap-3 text-sm border-l-2 border-slate-200 dark:border-slate-600 pl-3 py-2">
+                <div className="pt-0.5">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${badge}`}>{e.kind}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium dark:text-white">{title}</div>
+                  {(e.notes || actorPart) && (
+                    <div className="text-slate-500 dark:text-slate-400 text-xs">
+                      {actorPart}{e.notes ? (actorPart ? ` — ${e.notes}` : e.notes) : ''}
+                    </div>
+                  )}
                 </div>
                 <div className="text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">
-                  {act.actor_name && <span>{act.actor_name} · </span>}
-                  <EthDateDisplay date={act.created_at} includeTime inline className="inline" />
+                  <EthDateDisplay date={e.ts} includeTime inline className="inline" />
                 </div>
               </div>
-            ))}
-          </div>
+            )
+          }) : (
+            <div className="text-sm text-slate-500 dark:text-slate-400">{t('no_activity')}</div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
