@@ -8,6 +8,14 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const idleTimeoutMs = (() => {
+    const raw = import.meta?.env?.VITE_IDLE_TIMEOUT_MINUTES
+    const minutes = raw ? Number(raw) : 30
+    return Number.isFinite(minutes) && minutes > 0 ? minutes * 60 * 1000 : 30 * 60 * 1000
+  })()
+
+  const activityKey = 'eeu_last_activity'
+
   const fetchUser = async () => {
     const token = getAccessToken()
     if (!token) {
@@ -20,7 +28,9 @@ export function AuthProvider({ children }) {
       setUser(res.data)
     } catch (err) {
       console.error('Failed to fetch user:', err)
+      clearTokens()
       setUser(null)
+      window.location.href = '/login'
     } finally {
       setLoading(false)
     }
@@ -33,11 +43,36 @@ export function AuthProvider({ children }) {
   const logout = () => {
     clearTokens()
     setUser(null)
+    window.location.href = '/login'
   }
 
   const refreshUser = () => {
     fetchUser()
   }
+
+  useEffect(() => {
+    const markActivity = () => {
+      localStorage.setItem(activityKey, String(Date.now()))
+    }
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart']
+    events.forEach((e) => window.addEventListener(e, markActivity, { passive: true }))
+    markActivity()
+
+    const interval = window.setInterval(() => {
+      const token = getAccessToken()
+      if (!token) return
+      const last = Number(localStorage.getItem(activityKey) || '0')
+      if (last && Date.now() - last > idleTimeoutMs) {
+        logout()
+      }
+    }, 10_000)
+
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, markActivity))
+      window.clearInterval(interval)
+    }
+  }, [])
 
   // Helper permission checks
   const canManageUsers = user?.profile?.can_manage_users || false

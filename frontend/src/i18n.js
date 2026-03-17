@@ -81,6 +81,7 @@ const resources = {
       // Workflow / Status
       status: 'Status',
       registered: 'Registered',
+      registered_and_directed: 'Registered and Directed',
       directed: 'Directed',
       dispatched: 'Dispatched',
       received: 'Received',
@@ -337,6 +338,7 @@ const resources = {
       // Workflow / Status
       status: 'ሁኔታ',
       registered: 'ተመዝግቧል',
+      registered_and_directed: 'ተመዝግቧል እንዲሁም ተመርቷል',
       directed: 'ተመርቷል',
       dispatched: 'ተልኳል',
       received: 'ተቀብሏል',

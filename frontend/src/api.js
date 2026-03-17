@@ -30,6 +30,11 @@ api.interceptors.response.use(
           return api(original)
         } catch (e) {
           clearTokens()
+          try {
+            localStorage.removeItem('eeu_last_activity')
+          } catch {
+            // ignore
+          }
           window.location.href = '/login'
           return Promise.reject(e)
         } finally {

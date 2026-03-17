@@ -80,6 +80,14 @@ class DocumentListSerializer(serializers.ModelSerializer):
         if dt == 'OUTGOING' and src == 'INTERNAL' and is_ceo_level:
             return 4
         if dt == 'MEMO' and is_ceo_level:
+            # CEO-level memos are distinguished by source:
+            # - INTERNAL: incoming memo from CxO offices to CEO (Scenario 5)
+            # - EXTERNAL: outgoing memo from CEO to CxO offices (Scenario 6)
+            if src == 'INTERNAL':
+                return 5
+            if src == 'EXTERNAL':
+                return 6
+            # Backward-compatible fallback for legacy/invalid data
             if obj.co_offices.exists():
                 return 5
             return 6
@@ -96,6 +104,9 @@ class DocumentListSerializer(serializers.ModelSerializer):
                 return 11
             return 10
         if dt == 'MEMO' and not is_ceo_level:
+            # Memo to CEO may optionally require CEO direction (similar to Scenario 14)
+            if getattr(obj, 'requires_ceo_direction', False):
+                return 15
             if obj.directed_offices.exists():
                 return 12
             return 13
@@ -125,7 +136,7 @@ class DocumentListSerializer(serializers.ModelSerializer):
                 return 'OUTGOING'
 
             # CEO-directed incoming letters become outgoing once directed (CEO Secretary dispatches to CxO)
-            if scenario in [1, 2, 14] and obj.status in ['DIRECTED', 'DISPATCHED', 'RECEIVED', 'IN_PROGRESS', 'RESPONDED', 'CLOSED']:
+            if scenario in [1, 2, 14, 15] and obj.status in ['DIRECTED', 'DISPATCHED', 'RECEIVED', 'IN_PROGRESS', 'RESPONDED', 'CLOSED']:
                 return 'OUTGOING'
 
             # S5: incoming memo from CxO can be forwarded by CEO Secretary to directed offices
@@ -146,10 +157,7 @@ class DocumentListSerializer(serializers.ModelSerializer):
                 return 'INCOMING'
 
             # CC'd to their department
-            if obj.co_offices.filter(id=dept_id).exists():
-                # S5: co_offices represents the originating office (CxO -> CEO memo)
-                if scenario == 5:
-                    return 'OUTGOING'
+            if obj.cc_offices.filter(id=dept_id).exists():
                 return 'INCOMING'
 
         # Default fallback
@@ -163,8 +171,10 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
     receipts = DocumentReceiptSerializer(many=True, read_only=True)
     department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), allow_null=True, required=False)
     co_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
+    cc_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
     directed_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
     co_office_names = serializers.SerializerMethodField()
+    cc_office_names = serializers.SerializerMethodField()
     directed_office_names = serializers.SerializerMethodField()
     co_office_name = serializers.SerializerMethodField()
     directed_office_name = serializers.SerializerMethodField()
@@ -178,13 +188,16 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Document
-        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'status', 'priority', 'confidentiality', 'registered_at', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'ceo_note', 'signature_name', 'company_office_name', 'cc_external_names', 'co_offices', 'co_office_names', 'co_office_name', 'directed_offices', 'directed_office_names', 'directed_office_name', 'department', 'department_name', 'department_code', 'assigned_to', 'prefix', 'sequence', 'ec_year', 'requires_ceo_direction', 'attachments', 'activities', 'acknowledgments', 'pending_acknowledgments', 'receipts', 'pending_receipts', 'user_can_acknowledge', 'user_can_receive', 'scenario']
+        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'status', 'priority', 'confidentiality', 'registered_at', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'ceo_note', 'signature_name', 'company_office_name', 'cc_external_names', 'co_offices', 'co_office_names', 'co_office_name', 'cc_offices', 'cc_office_names', 'directed_offices', 'directed_office_names', 'directed_office_name', 'department', 'department_name', 'department_code', 'assigned_to', 'prefix', 'sequence', 'ec_year', 'requires_ceo_direction', 'attachments', 'activities', 'acknowledgments', 'pending_acknowledgments', 'receipts', 'pending_receipts', 'user_can_acknowledge', 'user_can_receive', 'scenario']
 
     def get_scenario(self, obj):
         return self._get_scenario(obj)
 
     def get_co_office_names(self, obj):
         return list(obj.co_offices.values_list('name', flat=True))
+
+    def get_cc_office_names(self, obj):
+        return list(obj.cc_offices.values_list('name', flat=True))
 
     def get_directed_office_names(self, obj):
         return list(obj.directed_offices.values_list('name', flat=True))
@@ -213,9 +226,17 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
         if dt == 'OUTGOING' and src == 'INTERNAL' and is_ceo_level:
             return 4
         if dt == 'MEMO' and is_ceo_level:
-            if obj.co_offices.exists():
+            # CEO-level memos are distinguished by source:
+            # - INTERNAL: incoming memo from CxO offices to CEO (Scenario 5)
+            # - EXTERNAL: outgoing memo from CEO to CxO offices (Scenario 6)
+            if src == 'INTERNAL':
                 return 5  # CxO to CEO (incoming memo, may have directed_offices for forwarding)
-            return 6  # CEO to CxO offices (outgoing memo)
+            if src == 'EXTERNAL':
+                return 6  # CEO to CxO offices (outgoing memo)
+            # Backward-compatible fallback for legacy/invalid data
+            if obj.co_offices.exists():
+                return 5
+            return 6
         if dt == 'INCOMING' and src == 'EXTERNAL' and not is_ceo_level:
             return 7
         if dt == 'INCOMING' and src == 'INTERNAL' and not is_ceo_level:
@@ -233,6 +254,9 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
                 return 11
             return 10
         if dt == 'MEMO' and not is_ceo_level:
+            # S15: Memo to CEO with CEO direction
+            if getattr(obj, 'requires_ceo_direction', False):
+                return 15
             if obj.directed_offices.exists():
                 return 12  # CxO to other CxO
             return 13  # CxO to CEO
@@ -240,7 +264,7 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
 
     def _needs_receipt(self, scenario):
         """Scenarios that require receipt tracking"""
-        return scenario in [1, 2, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14]
+        return scenario in [1, 2, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15]
 
     def _s5_has_directed(self, obj):
         """Check if S5 memo has directed offices (forwarding workflow)"""
@@ -248,7 +272,7 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
 
     def _needs_acknowledgment(self, scenario):
         """Scenarios that require CC acknowledgment (mark as seen)"""
-        return scenario in [1, 2, 3, 4, 6, 8, 9, 10, 11, 12, 13, 14]
+        return scenario in [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15]
 
     def _receipt_by_ceo_secretary(self, scenario, obj=None):
         """Scenarios where CEO Secretary is the receiver"""
@@ -261,10 +285,10 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
         scenario = self._get_scenario(obj)
         if not self._needs_acknowledgment(scenario):
             return []
-        if not obj.co_offices.exists():
+        if not obj.cc_offices.exists():
             return []
         acknowledged_dept_ids = set(obj.acknowledgments.values_list('department_id', flat=True))
-        pending = obj.co_offices.exclude(id__in=acknowledged_dept_ids)
+        pending = obj.cc_offices.exclude(id__in=acknowledged_dept_ids)
         return [{'id': d.id, 'name': d.name, 'code': d.code} for d in pending]
 
     def get_user_can_acknowledge(self, obj):
@@ -281,7 +305,7 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
         if user.profile.role != 'CXO_SECRETARY':
             return False
         user_dept_id = user.profile.department_id
-        is_cc_office = obj.co_offices.filter(id=user_dept_id).exists()
+        is_cc_office = obj.cc_offices.filter(id=user_dept_id).exists()
         already_acknowledged = obj.acknowledgments.filter(department_id=user_dept_id).exists()
         return is_cc_office and not already_acknowledged
 
@@ -290,7 +314,10 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
-        if obj.status not in ['DISPATCHED', 'REGISTERED']:
+        # Allow receiving while DISPATCHED or REGISTERED. Also allow while RECEIVED
+        # so multiple directed offices can receive independently (status may already
+        # be RECEIVED after another office receives).
+        if obj.status not in ['DISPATCHED', 'REGISTERED', 'RECEIVED']:
             return False
         user = request.user
         if not hasattr(user, 'profile'):
@@ -298,9 +325,6 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
         profile = user.profile
         scenario = self._get_scenario(obj)
         if not self._needs_receipt(scenario):
-            return False
-        # Already fully received
-        if obj.status == 'RECEIVED':
             return False
         # Scenarios where CEO Secretary receives
         if self._receipt_by_ceo_secretary(scenario, obj):
@@ -355,13 +379,14 @@ class DocumentCreateSerializer(serializers.ModelSerializer):
     ref_no = serializers.CharField(max_length=100)
     department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), required=False, allow_null=True)
     co_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
+    cc_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
     directed_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
     co_office = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), allow_null=True, required=False, write_only=True)
     directed_office = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), allow_null=True, required=False, write_only=True)
 
     class Meta:
         model = Document
-        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'priority', 'confidentiality', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'company_office_name', 'cc_external_names', 'co_offices', 'co_office', 'directed_offices', 'directed_office', 'ceo_note', 'signature_name', 'department', 'ec_year', 'requires_ceo_direction', 'attachments', 'status']
+        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'priority', 'confidentiality', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'company_office_name', 'cc_external_names', 'co_offices', 'co_office', 'cc_offices', 'directed_offices', 'directed_office', 'ceo_note', 'signature_name', 'department', 'ec_year', 'requires_ceo_direction', 'attachments', 'status']
         read_only_fields = ['id', 'status']
 
     def create(self, validated_data):
@@ -371,13 +396,34 @@ class DocumentCreateSerializer(serializers.ModelSerializer):
 
         with transaction.atomic():
             co_offices = list(validated_data.pop('co_offices', []))
+            cc_offices = list(validated_data.pop('cc_offices', []))
             directed_offices = list(validated_data.pop('directed_offices', []))
             single_co = validated_data.pop('co_office', None)
             single_dir = validated_data.pop('directed_office', None)
+            initial_status = 'REGISTERED'
+            user = getattr(request, 'user', None)
+            profile = getattr(user, 'profile', None) if user and getattr(user, 'is_authenticated', False) else None
+            role = getattr(profile, 'role', None) if profile else None
+            providing_direction = bool(
+                validated_data.get('ceo_directed_date')
+                or validated_data.get('ceo_note')
+                or directed_offices
+                or single_dir
+            )
+            needs_direction = bool(
+                validated_data.get('requires_ceo_direction')
+                or (
+                    validated_data.get('department') is None
+                    and validated_data.get('doc_type') == 'INCOMING'
+                    and validated_data.get('source', 'EXTERNAL') in ['EXTERNAL', 'INTERNAL']
+                )
+            )
+            if providing_direction and needs_direction and role in ['CEO_SECRETARY', 'SUPER_ADMIN']:
+                initial_status = 'DIRECTED'
             document = Document.objects.create(
                 ref_no=ref_no,
                 created_by=request.user if request.user.is_authenticated else None,
-                status='REGISTERED',
+                status=initial_status,
                 **validated_data
             )
             if single_co:
@@ -386,6 +432,8 @@ class DocumentCreateSerializer(serializers.ModelSerializer):
                 directed_offices.append(single_dir)
             if co_offices:
                 document.co_offices.set(co_offices)
+            if cc_offices:
+                document.cc_offices.set(cc_offices)
             if directed_offices:
                 document.directed_offices.set(directed_offices)
 
@@ -493,11 +541,12 @@ class DocumentUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating documents - used for status progression workflow"""
     co_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
     directed_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
+    cc_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
 
     class Meta:
         model = Document
         fields = [
-            'status', 'ceo_directed_date', 'ceo_note', 'directed_offices', 'co_offices',
+            'status', 'ceo_directed_date', 'ceo_note', 'directed_offices', 'co_offices', 'cc_offices',
             'subject', 'summary', 'company_office_name', 'cc_external_names', 'received_date', 'written_date',
             'memo_date', 'due_date', 'signature_name', 'priority', 'confidentiality'
         ]
@@ -505,15 +554,46 @@ class DocumentUpdateSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         co_offices = validated_data.pop('co_offices', None)
         directed_offices = validated_data.pop('directed_offices', None)
-        
+        cc_offices = validated_data.pop('cc_offices', None)
+
+        # If a CxO memo to CEO is being marked as DIRECTED (CEO direction step),
+        # force it into the CEO-direction workflow so scenario detection stays stable
+        # even after directed_offices are set.
+        if (
+            validated_data.get('status') == 'DIRECTED'
+            and instance.doc_type == 'MEMO'
+            and instance.department_id is not None
+        ):
+            instance.requires_ceo_direction = True
+
+        # Apply updates first
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
         
         if co_offices is not None:
             instance.co_offices.set(co_offices)
+        if cc_offices is not None:
+            instance.cc_offices.set(cc_offices)
         if directed_offices is not None:
             instance.directed_offices.set(directed_offices)
+
+        # Auto-set status to DIRECTED when CEO Secretary provides direction info for scenarios requiring CEO direction
+        # Re-fetch scenario after updates to use latest data
+        try:
+            scenario = self._get_scenario(instance)
+            needs_direction = scenario in [1, 2, 14, 15]
+            providing_direction = (
+                validated_data.get('ceo_directed_date') is not None or
+                validated_data.get('ceo_note') is not None or
+                (directed_offices is not None and len(directed_offices) > 0)
+            )
+            if needs_direction and providing_direction and instance.status == 'REGISTERED':
+                instance.status = 'DIRECTED'
+                instance.save()
+        except Exception:
+            # If scenario detection fails, skip auto-status to avoid crash
+            pass
         
         # Log activity
         Activity.objects.create(

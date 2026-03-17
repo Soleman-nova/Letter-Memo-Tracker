@@ -1,9 +1,9 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getAccessToken, clearTokens } from './store/auth'
 import { useAuth } from './contexts/AuthContext'
-import { LayoutDashboard, FileText, FilePlus, LogOut, Globe, ChevronDown, Settings as SettingsIcon, Users } from 'lucide-react'
+import { LayoutDashboard, FileText, FilePlus, LogOut, Globe, ChevronDown, Settings as SettingsIcon, Users, Sun, Moon } from 'lucide-react'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import DocumentsList from './pages/DocumentsList'
@@ -26,13 +26,67 @@ function NavBar() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const logout = () => { clearTokens(); navigate('/') }
+
+  // Dark mode toggle
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window === 'undefined') return false
+    const stored = localStorage.getItem('theme')
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    return stored === 'dark' || (!stored && prefersDark)
+  })
+
+  const toggleTheme = () => {
+    const html = document.documentElement
+    const next = !isDark
+    setIsDark(next)
+    // Keep SettingsContext in sync by writing to both keys
+    if (next) {
+      html.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+      localStorage.setItem('eeu-dark-mode', 'true')
+    } else {
+      html.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+      localStorage.setItem('eeu-dark-mode', 'false')
+    }
+    // Dispatch a custom event so SettingsContext updates immediately in the same tab
+    window.dispatchEvent(new CustomEvent('themechange', { detail: { isDark: next } }))
+  }
+
+  // Sync theme on mount and when custom event fires
+  useEffect(() => {
+    const html = document.documentElement
+    if (isDark) {
+      html.classList.add('dark')
+    } else {
+      html.classList.remove('dark')
+    }
+  }, [isDark])
+
+  // Listen for themechange from SettingsContext
+  useEffect(() => {
+    const handleThemeChange = (e) => {
+      setIsDark(e.detail.isDark)
+    }
+    window.addEventListener('themechange', handleThemeChange)
+    return () => window.removeEventListener('themechange', handleThemeChange)
+  }, [])
+
   return (
     <header className="h-14 px-4 flex items-center justify-between bg-[#0B3C5D] dark:bg-slate-900 text-white border-b border-[#09324F] dark:border-slate-700">
       <Link to="/dashboard" className="flex items-center gap-3" aria-label={t('app_title')}>
-        <img src="/eeu-logo.png" alt="EEU" className="h-8 w-8 rounded-full ring-1 ring-white/20" />
+        <img src="/eeu-logo.png" alt="EEU" className="h-12 w-12 rounded-full ring-1 ring-white/20" />
         <span className="font-semibold tracking-tight">{t('app_title')}</span>
       </Link>
       <div className="flex items-center gap-2">
+        <button
+          onClick={toggleTheme}
+          className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors"
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
         <div className="relative group">
           <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors">
             <Globe className="w-4 h-4" />

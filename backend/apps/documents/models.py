@@ -82,6 +82,7 @@ class Document(models.Model):
     # Parties / offices
     company_office_name = models.CharField(max_length=200, blank=True)
     co_offices = models.ManyToManyField(Department, blank=True, related_name='co_office_documents')
+    cc_offices = models.ManyToManyField(Department, blank=True, related_name='cc_office_documents')
     directed_offices = models.ManyToManyField(Department, blank=True, related_name='directed_office_documents')
     sender_name = models.CharField(max_length=200, blank=True)
     receiver_name = models.CharField(max_length=200, blank=True)

@@ -32,24 +32,43 @@ export default function Login() {
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
       {/* Brand / Hero */}
-      <div className="hidden lg:flex flex-col justify-between p-12 text-white bg-gradient-to-br from-[#0B3C5D] via-[#0A4C86] to-[#0B3C5D]">
-        <div>
-          <div className="flex items-center gap-3">
-            <img src="/eeu-logo.png" alt="EEU" className="h-10 w-10 rounded-full ring-1 ring-white/20 bg-white/10" />
-            <div className="text-xl font-semibold tracking-tight">{t('app_title')}</div>
-          </div>
-          <div className="mt-16 max-w-md">
-            <h2 className="text-3xl font-semibold leading-snug">{t('app_title')}</h2>
-            <p className="mt-3 text-white/80">{t('login_subtitle')}</p>
-          </div>
+      <div className="hidden lg:flex flex-col justify-center items-center p-12 text-white bg-gradient-to-br from-[#0B3C5D] via-[#0A4C86] to-[#0B3C5D] relative">
+        <div className="absolute top-12 left-12 flex items-center gap-3">
+          <img src="/eeu-logo.png" alt="EEU" className="h-20 w-20 rounded-full ring-1 ring-white/20 bg-white/10" />
+          <div className="text-xl font-semibold tracking-tight">{t('app_title')}</div>
         </div>
-        <div className="text-xs text-white/70">© {new Date().getFullYear()} Ethiopian Electric Utility. Developed by EEU IT.</div>
+        <div className="flex flex-col items-center text-center max-w-lg">
+          <h2 className="text-3xl font-semibold leading-snug">{t('app_title')}</h2>
+          <p className="mt-3 text-white/80">{t('login_subtitle')}</p>
+        </div>
+        <div className="absolute bottom-12 text-xs text-white/70">© {new Date().getFullYear()} Ethiopian Electric Utility. Developed by EEU IT.</div>
       </div>
 
       {/* Auth Card */}
-      <div className="flex items-center justify-center p-6 sm:p-10 bg-slate-50 dark:bg-slate-900">
-        <div className="w-full max-w-md">
-          <div className="bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6 sm:p-8">
+      <div className="relative flex items-center justify-center p-6 sm:p-10 bg-slate-50 dark:bg-slate-900 overflow-hidden">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: "url('/edited_pattern-dark.png')",
+            backgroundRepeat: 'repeat',
+            backgroundSize: '220px auto',
+            backgroundPosition: 'center',
+            opacity: 0.12,
+          }}
+        />
+        <div
+          className="absolute inset-0 pointer-events-none hidden dark:block"
+          style={{
+            backgroundImage: "url('/edited_patten.png')",
+            backgroundRepeat: 'repeat',
+            backgroundSize: '220px auto',
+            backgroundPosition: 'center',
+            opacity: 0.12,
+          }}
+        />
+        <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/40 via-white/20 to-white/40 dark:from-slate-900/70 dark:via-slate-900/40 dark:to-slate-900/70" />
+        <div className="relative w-full max-w-md">
+          <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur shadow-xl rounded-xl p-6 sm:p-8 border border-slate-200/60 dark:border-slate-700/60">
             <div className="mb-6">
               <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">{t('login')}</h1>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('login_subtitle')}</p>

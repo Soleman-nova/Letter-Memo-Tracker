@@ -35,6 +35,8 @@ export default function DocumentForm() {
     company_office_name: '',
     co_offices: [],
     directed_offices: [],
+    from_cxo_office: [], // Separate field for Scenario 2 From Office to avoid auto-populating CC
+    cc_other_cxo: [], // Separate field for Scenario 5 CC to avoid conflict with From Office
     // Dates
     received_date: '',
     written_date: '',
@@ -142,10 +144,15 @@ export default function DocumentForm() {
   const update = (k, v) => {
     setForm(prev => {
       const next = { ...prev, [k]: v }
-      // Force source=INTERNAL when doc_type is MEMO
+      // Set source based on doc_type and memo direction
       if (k === 'doc_type' && v === 'MEMO') {
-        next.source = 'INTERNAL'
+        next.source = 'INTERNAL' // Default to INTERNAL for memos
         setMemoDirection('OPTION_1')
+      } else if (k === 'memoDirection') {
+        // For memos, set source based on direction
+        if (form.doc_type === 'MEMO') {
+          next.source = v === 'OPTION_1' ? 'INTERNAL' : 'EXTERNAL'
+        }
       }
       return next
     })
@@ -161,6 +168,8 @@ export default function DocumentForm() {
           ceo_directed_date: form.ceo_directed_date,
           ceo_note: form.ceo_note,
           directed_offices: form.directed_offices.map(Number),
+          co_offices: form.co_offices.map(Number),
+          cc_offices: form.cc_other_cxo.map(Number),
           status: 'DIRECTED'
         }
         await api.patch(`/api/documents/documents/${id}/`, updateData)
@@ -170,7 +179,37 @@ export default function DocumentForm() {
         // Create mode
         const fd = new FormData()
         Object.entries(form).forEach(([k, v]) => {
-          if (Array.isArray(v)) {
+          if (k === 'from_cxo_office') {
+            // Map Scenario 2 from_cxo_office to co_offices for backend
+            if (form.doc_type === 'INCOMING' && form.source === 'INTERNAL') {
+              v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append('co_offices', val) })
+            }
+          } else if (k === 'cc_other_cxo') {
+            // Map Scenario 5 cc_other_cxo to co_offices for backend (CC field)
+            if (form.doc_type === 'MEMO' && memoDirection === 'OPTION_1') {
+              v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append('cc_offices', val) })
+            }
+            // For Scenario 6, cc_other_cxo are the CC offices
+            if (form.doc_type === 'MEMO' && memoDirection === 'OPTION_2') {
+              v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append('cc_offices', val) })
+            }
+          } else if (k === 'co_offices') {
+            // For Scenario 5, co_offices contains the originating office
+            // For other scenarios, handle normally
+            if (form.doc_type === 'MEMO' && memoDirection === 'OPTION_1') {
+              v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append('co_offices', val) })
+            } else {
+              v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append(k, val) })
+            }
+          } else if (k === 'directed_offices') {
+            // For Scenario 5, directed_offices are the actual directed offices
+            // For Scenario 6, directed_offices are the recipient offices
+            if (form.doc_type === 'MEMO') {
+              v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append('directed_offices', val) })
+            } else {
+              v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append(k, val) })
+            }
+          } else if (Array.isArray(v)) {
             v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append(k, val) })
           } else if (v !== '' && v !== undefined && v !== null) {
             fd.append(k, v)
@@ -228,8 +267,12 @@ export default function DocumentForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
               <div><span className="text-slate-500 dark:text-slate-400">{t('ref_no')}:</span> <span className="font-medium dark:text-white">{existingDoc.ref_no}</span></div>
               <div>
-                <span className="text-slate-500 dark:text-slate-400">{existingDoc.received_date ? t('received_date') : t('written_date')}:</span>{' '}
-                <span className="font-medium dark:text-white"><EthDateDisplay date={existingDoc.received_date || existingDoc.written_date} inline /></span>
+                <span className="text-slate-500 dark:text-slate-400">{t('written_date')}:</span>{' '}
+                <span className="font-medium dark:text-white">
+                  {(existingDoc.written_date || existingDoc.memo_date || existingDoc.received_date)
+                    ? <EthDateDisplay date={existingDoc.written_date || existingDoc.memo_date || existingDoc.received_date} inline />
+                    : '-'}
+                </span>
               </div>
               <div className="md:col-span-2"><span className="text-slate-500 dark:text-slate-400">{t('subject')}:</span> <span className="font-medium dark:text-white">{existingDoc.subject}</span></div>
               <div><span className="text-slate-500 dark:text-slate-400">{t('from')}:</span> <span className="font-medium dark:text-white">{
@@ -252,6 +295,10 @@ export default function DocumentForm() {
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('direct_to_cxo')} <span className="text-red-500">*</span></label>
                 <MultiSelect options={deptOptionsExcludeCEO} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_cxo_optional')}</label>
+                <MultiSelect options={deptOptionsExcludeSelfAndCEO} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_cc')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('ceo_note')}</label>
@@ -312,7 +359,7 @@ export default function DocumentForm() {
             {form.doc_type === 'MEMO' && (
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('direction')}</label>
-                <select className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" value={memoDirection} onChange={(e)=>setMemoDirection(e.target.value)}>
+                <select className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" value={memoDirection} onChange={(e)=>{setMemoDirection(e.target.value); update('memoDirection', e.target.value);}}>
                   {isCeoLevel ? (
                     <>
                       <option value="OPTION_1">{t('memo_incoming_ceo')}</option>
@@ -376,7 +423,7 @@ export default function DocumentForm() {
               <EthiopianDateInput label={t('received_date')} value={form.received_date} onChange={(v)=>update('received_date', v)} required />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('from_office_cxo')} <span className="text-red-500">*</span></label>
-                <MultiSelect options={deptOptionsExcludeCEO} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_originating')} />
+                <MultiSelect options={deptOptionsExcludeCEO} value={form.from_cxo_office} onChange={(vals)=>update('from_cxo_office', vals)} placeholder={t('ph_select_originating')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
@@ -469,9 +516,18 @@ export default function DocumentForm() {
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('subject')} <span className="text-red-500">*</span></label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.subject} onChange={(e)=>update('subject', e.target.value)} />
               </div>
+              <EthiopianDateInput label={t('ceo_directed_date')} value={form.ceo_directed_date} onChange={(v)=>update('ceo_directed_date', v)} />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('direct_to_cxo')}</label>
-                <MultiSelect options={deptOptionsForCCExcludeCEO} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
+                <MultiSelect options={deptOptionsExcludeCEO} value={form.directed_offices} onChange={(vals)=>update('directed_offices', vals)} placeholder={t('ph_select_offices')} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('cc_other_cxo_optional')}</label>
+                <MultiSelect options={deptOptionsForCCExcludeSelf} value={form.cc_other_cxo} onChange={(vals)=>update('cc_other_cxo', vals)} placeholder={t('ph_select_cc')} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1 dark:text-white">{t('ceo_note')}</label>
+                <textarea className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" rows={3} value={form.ceo_note} onChange={(e)=>update('ceo_note', e.target.value)} placeholder={t('ph_ceo_notes')} />
               </div>
             </div>
           </div>
@@ -658,6 +714,11 @@ export default function DocumentForm() {
         {form.doc_type === 'MEMO' && memoDirection === 'OPTION_2' && (
           <div className="border border-amber-200 dark:border-amber-800 rounded-xl p-4 bg-amber-50 dark:bg-amber-900/20">
             <div className="font-semibold mb-3 text-amber-900 dark:text-amber-300">{t('scenario_13')}</div>
+            <label className="flex items-center gap-2 mb-3 cursor-pointer select-none">
+              <input type="checkbox" checked={form.requires_ceo_direction} onChange={(e) => { update('requires_ceo_direction', e.target.checked) }} className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+              <span className="text-sm font-medium dark:text-white">{t('requires_ceo_direction')}</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500">({t('requires_ceo_direction_hint')})</span>
+            </label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <EthiopianDateInput label={t('memo_date')} value={form.memo_date} onChange={(v)=>update('memo_date', v)} required />
               <div className="md:col-span-2">

@@ -221,12 +221,13 @@ export default function DocumentDetail() {
     12: t('scenario_12'),
     13: t('scenario_13'),
     14: t('scenario_14'),
+    15: t('scenario_13'),
   }
 
   // Scenarios that need dispatch by registering secretary
-  const needsDispatch = [1, 2, 4, 6, 8, 11, 12, 14]
-  // Scenarios that need CEO direction (S1, S2, S14)
-  const needsCeoDirection = [1, 2, 14]
+  const needsDispatch = [1, 2, 4, 6, 8, 11, 12, 14, 15]
+  // Scenarios that need CEO direction (S1, S2, S14, S15)
+  const needsCeoDirection = [1, 2, 14, 15]
   // Scenarios with no direction needed - dispatch directly from REGISTERED
   const directDispatch = [4, 6, 8, 11, 12]
   // S5 can optionally dispatch if directed_offices are set
@@ -250,8 +251,9 @@ export default function DocumentDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* S1, S2: CEO Direction needed first */}
-          {doc.status === 'REGISTERED' && needsCeoDirection.includes(scenario) && 
+          {/* CEO Direction needed first (S1, S2, S14, S15, plus Scenario 13 memos even if already received) */}
+          {((doc.status === 'REGISTERED' && needsCeoDirection.includes(scenario)) ||
+            (scenario === 13 && ['REGISTERED', 'RECEIVED'].includes(doc.status))) &&
            (role === 'CEO_SECRETARY' || role === 'SUPER_ADMIN') && (
             <Link to={`/documents/${id}/edit`} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-blue-700">
               <Edit className="w-4 h-4" />
@@ -354,17 +356,32 @@ export default function DocumentDetail() {
             <Field label={t('office')} value={`${doc.department_code} - ${doc.department_name}`} />
           )}
           
-          {/* co_offices: meaning depends on scenario */}
+          {/* Originating office */}
           {doc.co_office_names?.length > 0 && (
-            <Chips 
+            <Chips
               label={
                 [2, 5].includes(scenario) ? t('from_office_cxo') :
                 [8].includes(scenario) ? t('from_sending_cxo') :
-                t('cc_cxo_optional')
-              } 
-              values={doc.co_office_names} 
+                t('office')
+              }
+              values={doc.co_office_names}
             />
           )}
+
+          {/* CC offices */}
+          {doc.cc_office_names?.length > 0 && (
+            <Chips
+              label={
+                [5, 6].includes(scenario) ? t('cc_other_cxo_optional') :
+                t('cc_cxo_optional')
+              }
+              values={doc.cc_office_names}
+            />
+          )}
+          {/* DEBUG: log co_office_names for Scenarios 1, 5, 6 */}
+          {scenario === 1 && console.log('Scenario 1 co_office_names:', doc.co_office_names)}
+          {scenario === 5 && console.log('Scenario 5 co_office_names:', doc.co_office_names)}
+          {scenario === 6 && console.log('Scenario 6 co_office_names:', doc.co_office_names)}
           
           {/* Directed offices: meaning depends on scenario */}
           {doc.directed_office_names?.length > 0 && (
@@ -390,7 +407,7 @@ export default function DocumentDetail() {
           {/* Summary */}
           <Field label={t('summary')} value={doc.summary} full />
           
-          {/* CEO direction fields (for S1 and S2) */}
+          {/* CEO direction fields */}
           {needsCeoDirection.includes(scenario) && (
             <>
               <Field label={t('ceo_directed_date')} value={doc.ceo_directed_date} isDate />
@@ -563,12 +580,17 @@ export default function DocumentDetail() {
             12: ['REGISTERED', 'DISPATCHED', 'RECEIVED'],
             13: ['REGISTERED', 'RECEIVED'],
             14: ['REGISTERED', 'DIRECTED', 'DISPATCHED', 'RECEIVED'],
+            15: ['REGISTERED', 'DIRECTED', 'DISPATCHED', 'RECEIVED'],
           }
           const stepLabels = {
             REGISTERED: t('registered'),
             DIRECTED: t('directed'),
             DISPATCHED: t('dispatched'),
             RECEIVED: t('received'),
+          }
+          // Show combined label for Scenario 1 when status is DIRECTED
+          if (scenario === 1 && doc.status === 'DIRECTED') {
+            stepLabels.DIRECTED = t('registered_and_directed')
           }
           const flow = steps[scenario] || ['REGISTERED']
           const currentIdx = flow.indexOf(doc.status)

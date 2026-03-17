@@ -50,6 +50,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             qs = qs.filter(
                 Q(department_id=dept_id) |
                 Q(co_offices__id=dept_id) |
+                Q(cc_offices__id=dept_id) |
                 Q(directed_offices__id=dept_id)
             ).distinct()
         q = self.request.query_params.get('q')
@@ -265,6 +266,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             12: {'REGISTERED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
             13: {'REGISTERED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
             14: {'REGISTERED': ['DIRECTED'], 'DIRECTED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
+            15: {'REGISTERED': ['DIRECTED'], 'DIRECTED': ['DISPATCHED'], 'DISPATCHED': ['RECEIVED'], 'RECEIVED': ['IN_PROGRESS', 'CLOSED'], 'IN_PROGRESS': ['RESPONDED', 'CLOSED'], 'RESPONDED': ['CLOSED']},
         }
         
         # Validate transition (skip for RECEIVED which is handled by mark_received action)
@@ -278,7 +280,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         # Dispatch permission checks
         if new_status == 'DISPATCHED':
             # S1, S2, S14: CEO Secretary dispatches after direction
-            if scenario in [1, 2, 14]:
+            if scenario in [1, 2, 14, 15]:
                 if document.status != 'DIRECTED':
                     return Response({'error': 'Document must be directed before dispatching'}, status=status.HTTP_400_BAD_REQUEST)
                 if profile.role not in ['CEO_SECRETARY', 'SUPER_ADMIN']:
@@ -315,8 +317,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
         
         # Direction permission check (S1, S2, S14)
         if new_status == 'DIRECTED':
-            if scenario not in [1, 2, 14]:
-                return Response({'error': 'Only Scenario 1, 2, and 14 documents require CEO direction'}, status=status.HTTP_400_BAD_REQUEST)
+            if scenario not in [1, 2, 14, 15]:
+                return Response({'error': 'Only Scenario 1, 2, 14, and Scenario 13 memos with CEO direction require CEO direction'}, status=status.HTTP_400_BAD_REQUEST)
             if profile.role not in ['CEO_SECRETARY', 'SUPER_ADMIN']:
                 raise PermissionDenied("Only CEO Secretary can direct documents")
         
@@ -354,7 +356,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         user_dept = profile.department
         
         # Validate: user's department must be in CC offices
-        if not document.co_offices.filter(id=user_dept.id).exists():
+        if not document.cc_offices.filter(id=user_dept.id).exists():
             raise PermissionDenied("Your department is not CC'd on this document")
         
         # Check if already acknowledged
@@ -402,6 +404,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 return 14
             return 11 if document.directed_offices.exists() else 10
         if dt == 'MEMO' and not is_ceo_level:
+            if getattr(document, 'requires_ceo_direction', False):
+                return 15
             if document.directed_offices.exists(): return 12
             return 13
         return 0
@@ -424,8 +428,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
         if scenario in no_receipt_scenarios or scenario == 0:
             return Response({'error': 'This document type does not require receipt confirmation'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Validate: document must be dispatched or registered (some scenarios skip dispatch)
-        if document.status not in ['DISPATCHED', 'REGISTERED']:
+        # Validate: document must be dispatched or registered (some scenarios skip dispatch).
+        # Also allow while RECEIVED so multiple directed offices can receive independently
+        # (status may already be RECEIVED after another office receives).
+        if document.status not in ['DISPATCHED', 'REGISTERED', 'RECEIVED']:
             return Response({'error': 'Document is not in a receivable status'}, status=status.HTTP_400_BAD_REQUEST)
         
         # Scenarios where CEO Secretary receives (S5, S10, S13)
@@ -443,13 +449,12 @@ class DocumentViewSet(viewsets.ModelViewSet):
             # Determine department for receipt: use document's dept, user's dept, or first available dept
             receipt_dept = document.department or profile.department
             if not receipt_dept:
-                # For S2/S5 CEO-level docs where CEO Secretary has no dept, use the sending office
-                first_co = document.co_offices.first()
-                if first_co:
-                    receipt_dept = first_co
+                # For CEO-level docs where CEO Secretary has no dept, record receipt under the CEO department
+                ceo_dept = Department.objects.filter(code__iexact='CEO').first()
+                if ceo_dept:
+                    receipt_dept = ceo_dept
                 else:
-                    # Fallback: create without department is not possible due to FK constraint
-                    # Use any department as a placeholder
+                    # Last-resort fallback to keep receipt creation from failing
                     receipt_dept = Department.objects.first()
             receipt = DocumentReceipt.objects.create(
                 document=document,

@@ -99,6 +99,7 @@ class UserProfile(models.Model):
             return (
                 document.department_id in dept_ids or
                 document.co_offices.filter(id__in=dept_ids).exists() or
+                document.cc_offices.filter(id__in=dept_ids).exists() or
                 document.directed_offices.filter(id__in=dept_ids).exists()
             )
         return False
@@ -113,6 +114,7 @@ class UserProfile(models.Model):
             return (
                 document.department_id in dept_ids or
                 document.co_offices.filter(id__in=dept_ids).exists() or
+                document.cc_offices.filter(id__in=dept_ids).exists() or
                 document.directed_offices.filter(id__in=dept_ids).exists()
             )
         return False
