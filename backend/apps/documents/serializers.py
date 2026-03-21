@@ -194,9 +194,19 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
         return self._get_scenario(obj)
 
     def get_co_office_names(self, obj):
+        scenario = self._get_scenario(obj)
+        # S1, S3, S4 & S6 have no originating CxO office field in detail display.
+        # For legacy S1/S3/S4/S6 records where CC offices were stored in co_offices,
+        # cc_office_names fallback handles the display.
+        if scenario in [1, 3, 4, 6]:
+            return []
         return list(obj.co_offices.values_list('name', flat=True))
 
     def get_cc_office_names(self, obj):
+        scenario = self._get_scenario(obj)
+        # Legacy S1/S3/S4/S6 fallback: treat co_offices as CC offices when cc_offices is empty.
+        if scenario in [1, 3, 4, 6] and not obj.cc_offices.exists() and obj.co_offices.exists():
+            return list(obj.co_offices.values_list('name', flat=True))
         return list(obj.cc_offices.values_list('name', flat=True))
 
     def get_directed_office_names(self, obj):
@@ -280,15 +290,24 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
             return False  # S5 with directed offices: CxO offices receive, not CEO
         return scenario in [5, 10, 13]
 
+    def _get_acknowledgment_offices(self, obj, scenario=None):
+        """Offices that should acknowledge CC visibility for this document."""
+        scenario = scenario if scenario is not None else self._get_scenario(obj)
+        if scenario in [1, 3, 4, 6] and not obj.cc_offices.exists() and obj.co_offices.exists():
+            # Legacy S1/S3/S4/S6 fallback (old data shape)
+            return obj.co_offices.all()
+        return obj.cc_offices.all()
+
     def get_pending_acknowledgments(self, obj):
         """Returns list of CC'd offices that haven't acknowledged yet"""
         scenario = self._get_scenario(obj)
         if not self._needs_acknowledgment(scenario):
             return []
-        if not obj.cc_offices.exists():
+        acknowledgment_offices = self._get_acknowledgment_offices(obj, scenario)
+        if not acknowledgment_offices.exists():
             return []
         acknowledged_dept_ids = set(obj.acknowledgments.values_list('department_id', flat=True))
-        pending = obj.cc_offices.exclude(id__in=acknowledged_dept_ids)
+        pending = acknowledgment_offices.exclude(id__in=acknowledged_dept_ids)
         return [{'id': d.id, 'name': d.name, 'code': d.code} for d in pending]
 
     def get_user_can_acknowledge(self, obj):
@@ -305,7 +324,8 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
         if user.profile.role != 'CXO_SECRETARY':
             return False
         user_dept_id = user.profile.department_id
-        is_cc_office = obj.cc_offices.filter(id=user_dept_id).exists()
+        acknowledgment_offices = self._get_acknowledgment_offices(obj, scenario)
+        is_cc_office = acknowledgment_offices.filter(id=user_dept_id).exists()
         already_acknowledged = obj.acknowledgments.filter(department_id=user_dept_id).exists()
         return is_cc_office and not already_acknowledged
 

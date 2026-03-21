@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-r
 import { useTranslation } from 'react-i18next'
 import { getAccessToken, clearTokens } from './store/auth'
 import { useAuth } from './contexts/AuthContext'
-import { LayoutDashboard, FileText, FilePlus, LogOut, Globe, ChevronDown, Settings as SettingsIcon, Users, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, FileText, FilePlus, LogOut, Globe, ChevronDown, Settings as SettingsIcon, Users, Sun, Moon, DollarSign } from 'lucide-react'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import DocumentsList from './pages/DocumentsList'
@@ -11,6 +11,7 @@ import DocumentForm from './pages/DocumentForm'
 import DocumentDetail from './pages/DocumentDetail'
 import Settings from './pages/Settings'
 import UserManagement from './pages/UserManagement'
+import PaymentList from './pages/PaymentList'
 
 function RequireAuth({ children }) {
   const authed = !!getAccessToken()
@@ -110,13 +111,14 @@ function NavBar() {
 function Sidebar() {
   const { t } = useTranslation()
   const location = useLocation()
-  const { canManageUsers, canCreateDocuments, user } = useAuth()
+  const { canManageUsers, canCreateDocuments, user, isCeoSecretary, isCeo } = useAuth()
   
   // Build nav items based on permissions
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), show: true },
     { to: '/documents', icon: FileText, label: t('documents'), show: true },
     { to: '/documents/new', icon: FilePlus, label: t('new_document'), show: canCreateDocuments },
+    { to: '/payments', icon: DollarSign, label: 'Financial Payments', show: isCeoSecretary || isCeo },
     { to: '/users', icon: Users, label: t('user_management'), show: canManageUsers },
     { to: '/settings', icon: SettingsIcon, label: t('settings'), show: true },
   ].filter(item => item.show)
@@ -186,6 +188,7 @@ export default function App() {
         <Route path="/documents/new" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><DocumentForm /></div></div></></RequireAuth>} />
         <Route path="/documents/:id" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><DocumentDetail /></div></div></></RequireAuth>} />
         <Route path="/documents/:id/edit" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><DocumentForm /></div></div></></RequireAuth>} />
+        <Route path="/payments" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><PaymentList /></div></div></></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><Settings /></div></div></></RequireAuth>} />
         <Route path="/users" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><UserManagement /></div></div></></RequireAuth>} />
       </Routes>

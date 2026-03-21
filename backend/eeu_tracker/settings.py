@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     # Local apps
     'apps.core',
     'apps.documents',
+    'apps.payments',
 ]
 
 MIDDLEWARE = [

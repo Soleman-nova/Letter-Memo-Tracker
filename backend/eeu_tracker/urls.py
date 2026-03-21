@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/core/', include('apps.core.urls')),
     path('api/documents/', include('apps.documents.urls')),
+    path('api/payments/', include('apps.payments.urls')),
 ]
 
 # Serve media files (attachments) in both dev and production

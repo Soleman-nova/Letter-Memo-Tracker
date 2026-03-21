@@ -354,9 +354,14 @@ class DocumentViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Your account is not associated with a department'}, status=status.HTTP_400_BAD_REQUEST)
         
         user_dept = profile.department
+        scenario = self._get_scenario(document)
+        acknowledgment_offices = document.cc_offices.all()
+        if scenario == 1 and not document.cc_offices.exists() and document.co_offices.exists():
+            # Legacy S1 fallback: CC offices were previously stored in co_offices
+            acknowledgment_offices = document.co_offices.all()
         
         # Validate: user's department must be in CC offices
-        if not document.cc_offices.filter(id=user_dept.id).exists():
+        if not acknowledgment_offices.filter(id=user_dept.id).exists():
             raise PermissionDenied("Your department is not CC'd on this document")
         
         # Check if already acknowledged
@@ -552,4 +557,63 @@ class DocumentViewSet(viewsets.ModelViewSet):
             'department': user_dept.name,
             'received_at': receipt.received_at,
             'all_received': all_received
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def acknowledge(self, request, pk=None):
+        """Allow CxO Secretary to acknowledge (mark as seen) a CC'd document"""
+        document = self.get_object()
+        user = request.user
+        
+        # Ensure profile exists
+        if not hasattr(user, 'profile'):
+            UserProfile.objects.create(user=user)
+        
+        profile = user.profile
+        scenario = self._get_scenario(document)
+        
+        # Scenarios that need CC acknowledgment
+        needs_acknowledgment = scenario in [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15]
+        if not needs_acknowledgment:
+            return Response({'error': 'This document type does not require CC acknowledgment'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check if user is a CxO Secretary
+        if profile.role != 'CXO_SECRETARY':
+            raise PermissionDenied("Only CxO Secretary can acknowledge documents")
+        
+        # Check if user has a department
+        if not profile.department:
+            return Response({'error': 'Your account is not associated with a department'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user_dept = profile.department
+        acknowledgment_offices = document.cc_offices.all()
+        if scenario in [1, 3, 4, 6] and not document.cc_offices.exists() and document.co_offices.exists():
+            # Legacy S1/S3/S4/S6 fallback: CC offices were previously stored in co_offices
+            acknowledgment_offices = document.co_offices.all()
+        
+        # Check if user's department is CC'd on this document
+        if not acknowledgment_offices.filter(id=user_dept.id).exists():
+            raise PermissionDenied("Your department is not CC'd on this document")
+        
+        # Check if already acknowledged
+        if DocumentAcknowledgment.objects.filter(document=document, department=user_dept).exists():
+            return Response({'error': 'Your department has already acknowledged this document'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Create acknowledgment
+        acknowledgment = DocumentAcknowledgment.objects.create(
+            document=document,
+            department=user_dept,
+            acknowledged_by=user
+        )
+        
+        # Log activity
+        Activity.objects.create(
+            document=document, actor=user, action='acknowledged',
+            notes=f'{user_dept.code} marked as seen'
+        )
+        
+        return Response({
+            'message': 'Document acknowledged',
+            'department': user_dept.name,
+            'acknowledged_at': acknowledgment.acknowledged_at
         }, status=status.HTTP_201_CREATED)

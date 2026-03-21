@@ -76,6 +76,13 @@ export default function DocumentForm() {
       api.get(`/api/documents/documents/${id}/`).then(r => {
         const doc = r.data
         setExistingDoc(doc)
+        
+        // Determine scenario to properly map backend fields to frontend form state
+        const scenario = doc.scenario
+        const isScenario2 = doc.doc_type === 'INCOMING' && doc.source === 'INTERNAL'
+        const isScenario5 = doc.doc_type === 'MEMO' && doc.source === 'INTERNAL'
+        const isScenario6 = doc.doc_type === 'MEMO' && doc.source === 'EXTERNAL'
+        
         setForm({
           doc_type: doc.doc_type || 'INCOMING',
           source: doc.source || 'EXTERNAL',
@@ -84,7 +91,11 @@ export default function DocumentForm() {
           summary: doc.summary || '',
           ec_year: doc.ec_year || '',
           company_office_name: doc.company_office_name || '',
-          co_offices: doc.co_offices?.map(String) || [],
+          // Scenario 2: co_offices in backend = from_cxo_office in frontend
+          co_offices: isScenario2 ? [] : (doc.co_offices?.map(String) || []),
+          from_cxo_office: isScenario2 ? (doc.co_offices?.map(String) || []) : [],
+          // Scenario 5 & 6: cc_offices in backend = cc_other_cxo in frontend
+          cc_other_cxo: (isScenario5 || isScenario6) ? (doc.cc_offices?.map(String) || []) : [],
           directed_offices: doc.directed_offices?.map(String) || [],
           received_date: doc.received_date || '',
           written_date: doc.written_date || '',
@@ -97,6 +108,11 @@ export default function DocumentForm() {
           priority: doc.priority || 'NORMAL',
           confidentiality: doc.confidentiality || 'REGULAR',
         })
+        
+        // Set memo direction based on source for memos
+        if (doc.doc_type === 'MEMO') {
+          setMemoDirection(doc.source === 'INTERNAL' ? 'OPTION_1' : 'OPTION_2')
+        }
       }).catch(err => {
         console.error('Failed to load document:', err)
         toast.error('Failed to load document')
@@ -167,9 +183,9 @@ export default function DocumentForm() {
         const updateData = {
           ceo_directed_date: form.ceo_directed_date,
           ceo_note: form.ceo_note,
-          directed_offices: form.directed_offices.map(Number),
-          co_offices: form.co_offices.map(Number),
-          cc_offices: form.cc_other_cxo.map(Number),
+          directed_offices: (form.directed_offices || []).map(Number),
+          co_offices: (form.co_offices || []).map(Number),
+          cc_offices: (form.cc_other_cxo || []).map(Number),
           status: 'DIRECTED'
         }
         await api.patch(`/api/documents/documents/${id}/`, updateData)
@@ -194,9 +210,16 @@ export default function DocumentForm() {
               v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append('cc_offices', val) })
             }
           } else if (k === 'co_offices') {
+            // For Scenario 1, 2, 3, 4 & 6, co_offices are the CC offices (send as cc_offices)
+            if ((form.doc_type === 'INCOMING' && form.source === 'EXTERNAL') || 
+                (form.doc_type === 'INCOMING' && form.source === 'INTERNAL') ||
+                (form.doc_type === 'OUTGOING' && form.source === 'EXTERNAL') ||
+                (form.doc_type === 'OUTGOING' && form.source === 'INTERNAL') ||
+                (form.doc_type === 'MEMO' && memoDirection === 'OPTION_2')) {
+              v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append('cc_offices', val) })
+            }
             // For Scenario 5, co_offices contains the originating office
-            // For other scenarios, handle normally
-            if (form.doc_type === 'MEMO' && memoDirection === 'OPTION_1') {
+            else if (form.doc_type === 'MEMO' && memoDirection === 'OPTION_1') {
               v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append('co_offices', val) })
             } else {
               v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append(k, val) })
