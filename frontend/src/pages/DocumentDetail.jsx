@@ -373,7 +373,7 @@ export default function DocumentDetail() {
             <Chips
               label={
                 [5, 6].includes(scenario) ? t('cc_other_cxo_optional') :
-                [1, 3, 4].includes(scenario) ? 'CCed CxO Office' :
+                [1, 3, 4, 12, 14].includes(scenario) ? 'CCed CxO Office' :
                 t('cc_cxo_optional')
               }
               values={doc.cc_office_names}
@@ -393,8 +393,8 @@ export default function DocumentDetail() {
             />
           )}
 
-          {/* S10, S13: destination is CEO Office (no directed_offices) */}
-          {[10, 13].includes(scenario) && !doc.directed_office_names?.length && (
+          {/* S10, S13, S15: destination is CEO Office (no directed_offices) */}
+          {[10, 13, 15].includes(scenario) && !doc.directed_office_names?.length && (
             <Field label={t('to')} value="CEO Office" />
           )}
           
@@ -442,21 +442,19 @@ export default function DocumentDetail() {
 
       {/* Receipt Status - for all scenarios that need receipt */}
       {!noReceipt.includes(scenario) && (
-        (doc.receipts?.length > 0 || doc.pending_receipts?.length > 0 || 
-         doc.acknowledgments?.length > 0 || doc.pending_acknowledgments?.length > 0) && (
+        (doc.receipts?.length > 0 || doc.pending_receipts?.length > 0) && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-4">
           <h2 className="font-semibold mb-3 flex items-center gap-2 dark:text-white">
             <Truck className="w-4 h-4 text-[#0B3C5D] dark:text-[#F0B429]" />
             {t('delivery_status')}
           </h2>
           <div className="space-y-3">
-            {/* Received/Seen items (both receipts and acknowledgments) */}
-            {(doc.receipts?.length > 0 || doc.acknowledgments?.length > 0) && (
+            {/* Received items (receipts only) */}
+            {doc.receipts?.length > 0 && (
               <div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                   <CheckCircle className="w-3 h-3 text-green-500" />
-                  {doc.receipts?.length > 0 && doc.acknowledgments?.length > 0 ? t('received_and_seen') :
-                   doc.acknowledgments?.length > 0 ? t('seen') : t('received')}
+                  {t('received')}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {/* Receipts */}
@@ -475,28 +473,15 @@ export default function DocumentDetail() {
                     </div>
                     )
                   })}
-                  {/* Acknowledgments (CC offices marked as seen) */}
-                  {doc.acknowledgments?.map(ack => (
-                    <div key={ack.id} className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-3 py-1.5">
-                      <Eye className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                      <div>
-                        <div className="text-sm font-medium text-emerald-800 dark:text-emerald-300">{ack.department_code || ack.department_name}</div>
-                        <div className="text-xs text-emerald-600 dark:text-emerald-400">
-                          {t('seen_by')} {ack.acknowledged_by_name} · <EthDateDisplay date={ack.acknowledged_at} inline className="inline" />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
-            {/* Pending items (both pending receipts and pending acknowledgments) */}
-            {(doc.pending_receipts?.length > 0 || doc.pending_acknowledgments?.length > 0) && (
+            {/* Pending items (pending receipts only) */}
+            {doc.pending_receipts?.length > 0 && (
               <div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                   <Clock className="w-3 h-3 text-amber-500" />
-                  {doc.pending_receipts?.length > 0 && doc.pending_acknowledgments?.length > 0 ? t('pending_receipt_and_seen') :
-                   doc.pending_acknowledgments?.length > 0 ? t('pending_seen') : t('pending_receipt')}
+                  {t('pending_receipt')}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {/* Pending receipts */}
@@ -506,37 +491,23 @@ export default function DocumentDetail() {
                       <span className="text-sm font-medium text-amber-800 dark:text-amber-300">{dept.code || dept.name}</span>
                     </div>
                   ))}
-                  {/* Pending acknowledgments (CC offices not yet seen) */}
-                  {doc.pending_acknowledgments?.map(dept => (
-                    <div key={dept.id} className="inline-flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-3 py-1.5">
-                      <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                      <span className="text-sm font-medium text-amber-800 dark:text-amber-300">{dept.code || dept.name} ({t('cc')})</span>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
             {/* All done indicator */}
-            {doc.receipts?.length > 0 && doc.pending_receipts?.length === 0 &&
-             doc.acknowledgments?.length > 0 && doc.pending_acknowledgments?.length === 0 && (
+            {doc.receipts?.length > 0 && doc.pending_receipts?.length === 0 && (
               <div className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
                 <CheckCircle className="w-4 h-4" />
-                {t('all_received_and_seen')}
-              </div>
-            )}
-            {((doc.receipts?.length > 0 && doc.pending_receipts?.length === 0 && !doc.acknowledgments?.length) ||
-              (doc.acknowledgments?.length > 0 && doc.pending_acknowledgments?.length === 0 && !doc.receipts?.length)) && (
-              <div className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
-                <CheckCircle className="w-4 h-4" />
-                {doc.receipts?.length > 0 ? t('all_received') : t('all_seen')}
+                {t('all_received')}
               </div>
             )}
           </div>
         </div>
-      ))}
+      ))
+}
 
       {/* Acknowledgment Status (Mark as Seen) - for scenarios with CC offices */}
-      {(doc.co_office_names?.length > 0 || doc.cc_office_names?.length > 0) && (doc.acknowledgments?.length > 0 || doc.pending_acknowledgments?.length > 0) && (
+      {doc.cc_office_names?.length > 0 && (doc.acknowledgments?.length > 0 || doc.pending_acknowledgments?.length > 0) && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-4">
           <h2 className="font-semibold mb-3 flex items-center gap-2 dark:text-white">
             <Users className="w-4 h-4 text-[#F0B429]" />
@@ -554,7 +525,7 @@ export default function DocumentDetail() {
                     <div key={ack.id} className="inline-flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 px-3 py-1.5">
                       <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                       <div>
-                        <div className="text-sm font-medium text-green-800 dark:text-green-300">{ack.department_code || ack.department_name}</div>
+                        <div className="text-sm font-medium text-green-800 dark:text-green-300">{(ack.department_code || ack.department_name)} ({t('cc')})</div>
                         <div className="text-xs text-green-600 dark:text-green-400">
                           by {ack.acknowledged_by_name} · <EthDateDisplay date={ack.acknowledged_at} inline className="inline" />
                         </div>
@@ -574,7 +545,7 @@ export default function DocumentDetail() {
                   {doc.pending_acknowledgments.map(dept => (
                     <div key={dept.id} className="inline-flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-3 py-1.5">
                       <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                      <span className="text-sm font-medium text-amber-800 dark:text-amber-300">{dept.code || dept.name}</span>
+                      <span className="text-sm font-medium text-amber-800 dark:text-amber-300">{(dept.code || dept.name)} ({t('cc')})</span>
                     </div>
                   ))}
                 </div>

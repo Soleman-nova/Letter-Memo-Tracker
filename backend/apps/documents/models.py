@@ -40,34 +40,6 @@ CONFIDENTIALITY_LEVELS = [
 User = get_user_model()
 
 
-class NumberingRule(models.Model):
-    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name='numbering_rules')
-    doc_type = models.CharField(max_length=20)
-    prefix = models.CharField(max_length=50)
-    active = models.BooleanField(default=True)
-
-    class Meta:
-        unique_together = ('department', 'doc_type')
-        verbose_name = 'Numbering Rule'
-        verbose_name_plural = 'Numbering Rules'
-
-    def __str__(self):
-        return f"{self.department.code} - {self.doc_type}: {self.prefix}"
-
-
-class NumberSequence(models.Model):
-    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name='number_sequences')
-    doc_type = models.CharField(max_length=20)
-    ec_year = models.PositiveSmallIntegerField()
-    current_value = models.IntegerField(default=0)
-
-    class Meta:
-        unique_together = ('department', 'doc_type', 'ec_year')
-
-    def __str__(self):
-        return f"{self.department.code}-{self.doc_type}-{self.ec_year}: {self.current_value}"
-
-
 class Document(models.Model):
     doc_type = models.CharField(max_length=20, choices=DOC_TYPES)
     source = models.CharField(max_length=20, choices=SOURCE_TYPES, default='EXTERNAL')
@@ -75,7 +47,6 @@ class Document(models.Model):
     assigned_to = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='assigned_documents')
     prefix = models.CharField(max_length=50, blank=True)
     sequence = models.IntegerField(default=0)
-    ec_year = models.PositiveSmallIntegerField()
     ref_no = models.CharField(max_length=100, unique=True)
     subject = models.CharField(max_length=300)
     summary = models.TextField(blank=True)

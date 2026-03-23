@@ -236,6 +236,7 @@ export default function DocumentsList() {
               <th className="px-4 dark:text-slate-300">{t('direction')}</th>
               <th className="px-4 dark:text-slate-300">{t('source')}</th>
               <th className="px-4 dark:text-slate-300">{t('office')}</th>
+              <th className="px-4 dark:text-slate-300">{t('destination')}</th>
               <th className="px-4 dark:text-slate-300">{t('subject')}</th>
               <th className="px-4 dark:text-slate-300">{t('status')}</th>
               <th className="px-4 dark:text-slate-300">{t('date')}</th>
@@ -273,6 +274,7 @@ export default function DocumentsList() {
                 <td className="px-4"><span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${directionColors[d.perspective_direction] || ''}`}>{directionLabel}</span></td>
                 <td className="px-4 dark:text-slate-300 text-xs">{d.source === 'INTERNAL' ? t('internal') : t('external')}</td>
                 <td className="px-4 dark:text-slate-300 text-xs">{d.department_name || 'CEO Office'}</td>
+                <td className="px-4 dark:text-slate-300 text-xs max-w-xs truncate">{d.destination_display || '-'}</td>
                 <td className="px-4 dark:text-slate-300 max-w-xs truncate">{d.subject}</td>
                 <td className="px-4"><span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusColors[d.status] || ''}`}>{d.status}</span></td>
                 <td className="px-4 dark:text-slate-300 text-xs"><EthDateDisplay date={d.registered_at} inline /></td>
@@ -280,7 +282,7 @@ export default function DocumentsList() {
               )
             }) : (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-slate-500 dark:text-slate-400">{t('no_documents')}</td>
+                <td colSpan={9} className="py-8 text-center text-slate-500 dark:text-slate-400">{t('no_documents')}</td>
               </tr>
             )}
           </tbody>

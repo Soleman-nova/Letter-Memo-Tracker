@@ -30,6 +30,7 @@ class Department(models.Model):
 class UserProfile(models.Model):
     """Extended user profile with role and department association"""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    company_id = models.CharField(max_length=50, unique=True, null=True, blank=True)
     role = models.CharField(max_length=20, choices=USER_ROLES, default='CXO')
     department = models.ForeignKey(
         Department, 

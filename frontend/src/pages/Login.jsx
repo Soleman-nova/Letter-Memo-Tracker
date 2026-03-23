@@ -75,12 +75,12 @@ export default function Login() {
             </div>
             <form onSubmit={submit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('username')}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('user_id')}</label>
                 <input
                   className="mt-1 block w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 p-2.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F0B429] focus:border-[#0B3C5D]"
                   value={username}
                   onChange={(e)=>setUsername(e.target.value)}
-                  placeholder="you@eeu.gov.et"
+                  placeholder="e.g., 123456"
                   autoComplete="username"
                 />
               </div>

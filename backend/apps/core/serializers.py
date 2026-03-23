@@ -10,13 +10,14 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    user_id = serializers.CharField(source='company_id', read_only=True)
     department_name = serializers.CharField(source='department.name', read_only=True)
     department_code = serializers.CharField(source='department.code', read_only=True)
     role_display = serializers.CharField(source='get_role_display', read_only=True)
 
     class Meta:
         model = UserProfile
-        fields = ['role', 'role_display', 'department', 'department_name', 'department_code',
+        fields = ['user_id', 'role', 'role_display', 'department', 'department_name', 'department_code',
                   'can_manage_users', 'can_create_documents', 'can_edit_all_documents', 
                   'can_view_all_documents']
 
@@ -27,16 +28,18 @@ class UserSerializer(serializers.ModelSerializer):
     department = serializers.PrimaryKeyRelatedField(
         queryset=Department.objects.all(), write_only=True, required=False, allow_null=True
     )
+    user_id = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_active', 
-                  'profile', 'role', 'department']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_active',
+                  'profile', 'role', 'department', 'user_id']
         read_only_fields = ['id']
 
     def create(self, validated_data):
         role = validated_data.pop('role', 'CXO')
         department = validated_data.pop('department', None)
+        user_id = validated_data.pop('user_id', None)
         password = validated_data.pop('password', None)
         user = User.objects.create(**validated_data)
         if password:
@@ -45,12 +48,15 @@ class UserSerializer(serializers.ModelSerializer):
         # Update the auto-created profile
         user.profile.role = role
         user.profile.department = department
+        if user_id is not None:
+            user.profile.company_id = user_id or None
         user.profile.save()
         return user
 
     def update(self, instance, validated_data):
         role = validated_data.pop('role', None)
         department = validated_data.pop('department', None)
+        user_id = validated_data.pop('user_id', None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
@@ -58,7 +64,9 @@ class UserSerializer(serializers.ModelSerializer):
             instance.profile.role = role
         if department is not None:
             instance.profile.department = department
-        if role is not None or department is not None:
+        if user_id is not None:
+            instance.profile.company_id = user_id or None
+        if role is not None or department is not None or user_id is not None:
             instance.profile.save()
         return instance
 
@@ -68,12 +76,16 @@ class UserCreateSerializer(serializers.ModelSerializer):
     department = serializers.PrimaryKeyRelatedField(
         queryset=Department.objects.all(), required=False, allow_null=True
     )
+    user_id = serializers.CharField(write_only=True, required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, min_length=8)
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'password', 'role', 'department']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'password', 'role', 'department', 'user_id']
         read_only_fields = ['id']
+        extra_kwargs = {
+            'username': {'required': False, 'allow_blank': True},
+        }
 
     def validate(self, attrs):
         role = attrs.get('role')
@@ -88,12 +100,21 @@ class UserCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         role = validated_data.pop('role', 'CXO')
         department = validated_data.pop('department', None)
+        user_id = validated_data.pop('user_id', None)
         password = validated_data.pop('password')
+
+        # If no explicit username is provided, default it from the given User ID (company_id)
+        if 'username' not in validated_data or not validated_data.get('username'):
+            if user_id:
+                validated_data['username'] = str(user_id)
+
         user = User.objects.create(**validated_data)
         user.set_password(password)
         user.save()
         user.profile.role = role
         user.profile.department = department
+        if user_id is not None:
+            user.profile.company_id = user_id or None
         user.profile.save()
         return user
 

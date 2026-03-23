@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Document, Attachment, Activity, NumberSequence, NumberingRule
+from .models import Document, Attachment, Activity
 
 
 @admin.register(Document)
@@ -11,5 +11,3 @@ class DocumentAdmin(admin.ModelAdmin):
 
 admin.site.register(Attachment)
 admin.site.register(Activity)
-admin.site.register(NumberSequence)
-admin.site.register(NumberingRule)

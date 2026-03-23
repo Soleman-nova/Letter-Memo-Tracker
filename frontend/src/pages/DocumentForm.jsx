@@ -30,7 +30,6 @@ export default function DocumentForm() {
     ref_no: '',
     subject: '',
     summary: '',
-    ec_year: '',
     // Parties / offices
     company_office_name: '',
     co_offices: [],
@@ -89,7 +88,6 @@ export default function DocumentForm() {
           ref_no: doc.ref_no || '',
           subject: doc.subject || '',
           summary: doc.summary || '',
-          ec_year: doc.ec_year || '',
           company_office_name: doc.company_office_name || '',
           // Scenario 2: co_offices in backend = from_cxo_office in frontend
           co_offices: isScenario2 ? [] : (doc.co_offices?.map(String) || []),
@@ -210,12 +208,13 @@ export default function DocumentForm() {
               v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append('cc_offices', val) })
             }
           } else if (k === 'co_offices') {
-            // For Scenario 1, 2, 3, 4 & 6, co_offices are the CC offices (send as cc_offices)
+            // For Scenario 1, 2, 3, 4, 6 & 12, co_offices are the CC offices (send as cc_offices)
             if ((form.doc_type === 'INCOMING' && form.source === 'EXTERNAL') || 
                 (form.doc_type === 'INCOMING' && form.source === 'INTERNAL') ||
                 (form.doc_type === 'OUTGOING' && form.source === 'EXTERNAL') ||
                 (form.doc_type === 'OUTGOING' && form.source === 'INTERNAL') ||
-                (form.doc_type === 'MEMO' && memoDirection === 'OPTION_2')) {
+                (form.doc_type === 'MEMO' && memoDirection === 'OPTION_2') ||
+                (form.doc_type === 'MEMO' && memoDirection === 'OPTION_1' && isCxoSecretary)) {
               v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append('cc_offices', val) })
             }
             // For Scenario 5, co_offices contains the originating office
@@ -397,10 +396,6 @@ export default function DocumentForm() {
                 </select>
               </div>
             )}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('ec_year')} <span className="text-red-500">*</span></label>
-              <input className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" value={form.ec_year} onChange={(e)=>update('ec_year', e.target.value)} placeholder={t('ph_ec_year')} required />
-            </div>
           </div>
         </div>
 

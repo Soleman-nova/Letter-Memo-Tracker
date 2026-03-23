@@ -109,6 +109,7 @@ def me(request):
         'is_staff': u.is_staff,
         'is_superuser': u.is_superuser,
         'profile': {
+            'user_id': profile.company_id,
             'role': profile.role,
             'role_display': profile.get_role_display(),
             'department': {

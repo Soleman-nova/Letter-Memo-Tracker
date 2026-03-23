@@ -31,7 +31,7 @@
 The EEU Centralized Correspondence Registry is a full-stack web application that digitizes the document tracking workflow at Ethiopian Electric Utility. It manages the lifecycle of three document types — **Incoming Letters**, **Outgoing Letters**, and **Memos** — across 14 distinct routing scenarios between the CEO Office and 13 CxO (Chief x Officer) departmental offices.
 
 ### Key Capabilities
-- **Document Registration** with auto-generated reference numbers
+- **Document Registration** with manual reference numbers
 - **Multi-step Workflow** (Register → Direct → Dispatch → Receive → Close)
 - **Role-Based Access Control** with 5 user roles
 - **Receipt Tracking** per directed office
@@ -130,7 +130,7 @@ backend/
 │   │   └── management/commands/
 │   │       └── seed_departments.py  # Department seeding command
 │   └── documents/        # Document management
-│       ├── models.py     # Document, Attachment, Activity, Receipt, Acknowledgment, NumberingRule, NumberSequence
+│       ├── models.py     # Document, Attachment, Activity, Receipt, Acknowledgment
 │       ├── serializers.py# List/Detail/Create/Update serializers with scenario logic
 │       ├── views.py      # DocumentViewSet with workflow actions
 │       ├── urls.py       # /api/documents/ routes
@@ -194,10 +194,6 @@ backend/
 **`DocumentReceipt`** — Tracks per-department receipt confirmation. Unique per (document, department).
 
 **`DocumentAcknowledgment`** — Tracks per-department CC acknowledgment. Unique per (document, department).
-
-**`NumberingRule`** — Defines reference number prefix per department/doc_type.
-
-**`NumberSequence`** — Auto-incrementing counter per department/doc_type/EC year.
 
 #### Serializers
 
@@ -377,7 +373,7 @@ The most complex component, handling all 14 scenarios with conditional rendering
 
 **Key Behaviors:**
 - **Role Detection:** `isCeoLevel` (Super Admin, CEO Secretary) vs `isCxoSecretary`
-- **Auto-prefix:** Generates reference number prefix from department code and doc type
+- **Manual Reference Number:** `ref_no` is entered by the user; validated for uniqueness
 - **Memo Source Lock:** When `doc_type` changes to `MEMO`, source is forced to `INTERNAL`
 - **Memo Direction:** A separate `memoDirection` state (`OPTION_1` / `OPTION_2`) controls which memo scenario fields appear, decoupled from `form.source`
 - **Dropdown Filtering:**
@@ -701,13 +697,11 @@ User (django.contrib.auth)
 
 Department
   ├── code, name, parent (self-FK), active
-  ├── → NumberingRule (1:N per doc_type)
-  ├── → NumberSequence (1:N per doc_type/ec_year)
   └── M2M relationships via Document
 
 Document
   ├── doc_type, source, status, priority, confidentiality
-  ├── ref_no (unique), subject, summary, ec_year
+  ├── ref_no (unique), subject, summary
   ├── FK → Department (originating, nullable)
   ├── FK → User (created_by, assigned_to)
   ├── M2M → Department (co_offices)
@@ -723,8 +717,6 @@ Document
 
 ### 12.2 Key Constraints
 - `Document.ref_no` — UNIQUE
-- `NumberingRule` — UNIQUE TOGETHER (`department`, `doc_type`)
-- `NumberSequence` — UNIQUE TOGETHER (`department`, `doc_type`, `ec_year`)
 - `DocumentReceipt` — UNIQUE TOGETHER (`document`, `department`)
 - `DocumentAcknowledgment` — UNIQUE TOGETHER (`document`, `department`)
 
@@ -799,7 +791,7 @@ Response: [{ "id": 1, "ref_no": "CEO/001/18", "doc_type": "INCOMING", "source": 
 ```
 POST /api/documents/documents/
 Content-Type: multipart/form-data
-Fields: doc_type, source, ref_no, ec_year, subject, summary, priority, confidentiality, co_offices[], directed_offices[], received_date, written_date, memo_date, company_office_name, ceo_note, signature_name, department, requires_ceo_direction, attachments[]
+Fields: doc_type, source, ref_no, subject, summary, priority, confidentiality, co_offices[], directed_offices[], received_date, written_date, memo_date, company_office_name, ceo_note, signature_name, department, requires_ceo_direction, attachments[]
 Response: { "id": 1, "ref_no": "...", ... }
 ```
 

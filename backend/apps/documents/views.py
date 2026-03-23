@@ -146,13 +146,26 @@ class DocumentViewSet(viewsets.ModelViewSet):
             .order_by('acknowledged_at')
         )
 
+        def _actor_display(u):
+            if not u:
+                return ''
+            try:
+                if getattr(u, 'is_superuser', False):
+                    return u.get_full_name() or u.username
+                profile = getattr(u, 'profile', None)
+                if profile and getattr(profile, 'company_id', None):
+                    return profile.company_id
+            except Exception:
+                pass
+            return u.get_full_name() or u.username
+
         events = []
         for a in activities:
             events.append({
                 'timestamp': a.created_at,
                 'event_type': 'activity',
                 'action': a.action,
-                'actor': (a.actor.get_full_name() or a.actor.username) if a.actor else '',
+                'actor': _actor_display(a.actor),
                 'department': '',
                 'notes': a.notes or '',
             })
@@ -161,7 +174,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 'timestamp': r.received_at,
                 'event_type': 'receipt',
                 'action': 'received',
-                'actor': (r.received_by.get_full_name() or r.received_by.username) if r.received_by else '',
+                'actor': _actor_display(r.received_by),
                 'department': getattr(r.department, 'code', '') or getattr(r.department, 'name', '') or '',
                 'notes': '',
             })
@@ -170,7 +183,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 'timestamp': a.acknowledged_at,
                 'event_type': 'acknowledgment',
                 'action': 'acknowledged',
-                'actor': (a.acknowledged_by.get_full_name() or a.acknowledged_by.username) if a.acknowledged_by else '',
+                'actor': _actor_display(a.acknowledged_by),
                 'department': getattr(a.department, 'code', '') or getattr(a.department, 'name', '') or '',
                 'notes': '',
             })
@@ -356,8 +369,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
         user_dept = profile.department
         scenario = self._get_scenario(document)
         acknowledgment_offices = document.cc_offices.all()
-        if scenario == 1 and not document.cc_offices.exists() and document.co_offices.exists():
-            # Legacy S1 fallback: CC offices were previously stored in co_offices
+        if scenario in [1, 3, 4, 6, 12, 14] and not document.cc_offices.exists() and document.co_offices.exists():
+            # Legacy S1/S3/S4/S6/S12/S14 fallback: CC offices were previously stored in co_offices
             acknowledgment_offices = document.co_offices.all()
         
         # Validate: user's department must be in CC offices
@@ -587,8 +600,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
         
         user_dept = profile.department
         acknowledgment_offices = document.cc_offices.all()
-        if scenario in [1, 3, 4, 6] and not document.cc_offices.exists() and document.co_offices.exists():
-            # Legacy S1/S3/S4/S6 fallback: CC offices were previously stored in co_offices
+        if scenario in [1, 3, 4, 6, 12, 14] and not document.cc_offices.exists() and document.co_offices.exists():
+            # Legacy S1/S3/S4/S6/S12/S14 fallback: CC offices were previously stored in co_offices
             acknowledgment_offices = document.co_offices.all()
         
         # Check if user's department is CC'd on this document

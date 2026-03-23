@@ -129,8 +129,8 @@ export default function Settings() {
           
           <div className="space-y-3">
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('username')}</div>
-              <div className="font-medium text-sm dark:text-white">{user?.username || 'N/A'}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('user_id')}</div>
+              <div className="font-medium text-sm dark:text-white">{user?.profile?.role === 'SUPER_ADMIN' ? (user?.username || 'N/A') : (user?.profile?.user_id || user?.username || 'N/A')}</div>
             </div>
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('first_name')}</div>

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.conf import settings
 from django.db import transaction
-from .models import Document, Attachment, Activity, NumberSequence, NumberingRule, DocumentAcknowledgment, DocumentReceipt
+from .models import Document, Attachment, Activity, DocumentAcknowledgment, DocumentReceipt
 from apps.core.models import Department
 
 
@@ -21,6 +21,14 @@ class ActivitySerializer(serializers.ModelSerializer):
     def get_actor_name(self, obj):
         if not obj.actor:
             return None
+        try:
+            if getattr(obj.actor, 'is_superuser', False):
+                return obj.actor.get_full_name() or obj.actor.username
+            profile = getattr(obj.actor, 'profile', None)
+            if profile and getattr(profile, 'company_id', None):
+                return profile.company_id
+        except Exception:
+            pass
         return obj.actor.get_full_name() or obj.actor.username
 
 
@@ -36,6 +44,14 @@ class DocumentAcknowledgmentSerializer(serializers.ModelSerializer):
 
     def get_acknowledged_by_name(self, obj):
         if obj.acknowledged_by:
+            try:
+                if getattr(obj.acknowledged_by, 'is_superuser', False):
+                    return obj.acknowledged_by.get_full_name() or obj.acknowledged_by.username
+                profile = getattr(obj.acknowledged_by, 'profile', None)
+                if profile and getattr(profile, 'company_id', None):
+                    return profile.company_id
+            except Exception:
+                pass
             return obj.acknowledged_by.get_full_name() or obj.acknowledged_by.username
         return None
 
@@ -52,6 +68,14 @@ class DocumentReceiptSerializer(serializers.ModelSerializer):
 
     def get_received_by_name(self, obj):
         if obj.received_by:
+            try:
+                if getattr(obj.received_by, 'is_superuser', False):
+                    return obj.received_by.get_full_name() or obj.received_by.username
+                profile = getattr(obj.received_by, 'profile', None)
+                if profile and getattr(profile, 'company_id', None):
+                    return profile.company_id
+            except Exception:
+                pass
             return obj.received_by.get_full_name() or obj.received_by.username
         return None
 
@@ -59,10 +83,11 @@ class DocumentReceiptSerializer(serializers.ModelSerializer):
 class DocumentListSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source='department.name', read_only=True, default=None)
     perspective_direction = serializers.SerializerMethodField()
+    destination_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Document
-        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'status', 'priority', 'registered_at', 'department_name', 'perspective_direction']
+        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'status', 'priority', 'registered_at', 'department_name', 'perspective_direction', 'destination_display']
 
     def _get_scenario(self, obj):
         """Determine scenario number for a document (kept in sync with DocumentDetailSerializer/ViewSet logic)."""
@@ -163,6 +188,24 @@ class DocumentListSerializer(serializers.ModelSerializer):
         # Default fallback
         return obj.doc_type
 
+    def get_destination_display(self, obj):
+        scenario = self._get_scenario(obj)
+
+        directed_names = list(obj.directed_offices.values_list('name', flat=True))
+        if directed_names:
+            return ', '.join(directed_names)
+
+        if scenario in [10, 13, 15]:
+            return 'CEO Office'
+
+        if obj.doc_type == 'OUTGOING' and obj.source == 'EXTERNAL' and obj.company_office_name:
+            return obj.company_office_name
+
+        if obj.department:
+            return obj.department.name
+
+        return 'CEO Office'
+
 
 class DocumentDetailSerializer(serializers.ModelSerializer):
     attachments = AttachmentSerializer(many=True, read_only=True)
@@ -188,24 +231,24 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Document
-        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'status', 'priority', 'confidentiality', 'registered_at', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'ceo_note', 'signature_name', 'company_office_name', 'cc_external_names', 'co_offices', 'co_office_names', 'co_office_name', 'cc_offices', 'cc_office_names', 'directed_offices', 'directed_office_names', 'directed_office_name', 'department', 'department_name', 'department_code', 'assigned_to', 'prefix', 'sequence', 'ec_year', 'requires_ceo_direction', 'attachments', 'activities', 'acknowledgments', 'pending_acknowledgments', 'receipts', 'pending_receipts', 'user_can_acknowledge', 'user_can_receive', 'scenario']
+        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'status', 'priority', 'confidentiality', 'registered_at', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'ceo_note', 'signature_name', 'company_office_name', 'cc_external_names', 'co_offices', 'co_office_names', 'co_office_name', 'cc_offices', 'cc_office_names', 'directed_offices', 'directed_office_names', 'directed_office_name', 'department', 'department_name', 'department_code', 'assigned_to', 'prefix', 'sequence', 'requires_ceo_direction', 'attachments', 'activities', 'acknowledgments', 'pending_acknowledgments', 'receipts', 'pending_receipts', 'user_can_acknowledge', 'user_can_receive', 'scenario']
 
     def get_scenario(self, obj):
         return self._get_scenario(obj)
 
     def get_co_office_names(self, obj):
         scenario = self._get_scenario(obj)
-        # S1, S3, S4 & S6 have no originating CxO office field in detail display.
-        # For legacy S1/S3/S4/S6 records where CC offices were stored in co_offices,
+        # S1, S3, S4, S6, S12 & S14 have no originating CxO office field in detail display.
+        # For legacy S1/S3/S4/S6/S12/S14 records where CC offices were stored in co_offices,
         # cc_office_names fallback handles the display.
-        if scenario in [1, 3, 4, 6]:
+        if scenario in [1, 3, 4, 6, 12, 14]:
             return []
         return list(obj.co_offices.values_list('name', flat=True))
 
     def get_cc_office_names(self, obj):
         scenario = self._get_scenario(obj)
-        # Legacy S1/S3/S4/S6 fallback: treat co_offices as CC offices when cc_offices is empty.
-        if scenario in [1, 3, 4, 6] and not obj.cc_offices.exists() and obj.co_offices.exists():
+        # Legacy S1/S3/S4/S6/S12/S14 fallback: treat co_offices as CC offices when cc_offices is empty.
+        if scenario in [1, 3, 4, 6, 12, 14] and not obj.cc_offices.exists() and obj.co_offices.exists():
             return list(obj.co_offices.values_list('name', flat=True))
         return list(obj.cc_offices.values_list('name', flat=True))
 
@@ -293,8 +336,8 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
     def _get_acknowledgment_offices(self, obj, scenario=None):
         """Offices that should acknowledge CC visibility for this document."""
         scenario = scenario if scenario is not None else self._get_scenario(obj)
-        if scenario in [1, 3, 4, 6] and not obj.cc_offices.exists() and obj.co_offices.exists():
-            # Legacy S1/S3/S4/S6 fallback (old data shape)
+        if scenario in [1, 3, 4, 6, 12, 14] and not obj.cc_offices.exists() and obj.co_offices.exists():
+            # Legacy S1/S3/S4/S6/S12/S14 fallback (old data shape)
             return obj.co_offices.all()
         return obj.cc_offices.all()
 
@@ -346,6 +389,17 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
         scenario = self._get_scenario(obj)
         if not self._needs_receipt(scenario):
             return False
+        # Scenario 15: CEO office and directed CxO offices can receive
+        if scenario == 15:
+            if profile.role in ['CEO_SECRETARY', 'SUPER_ADMIN']:
+                already_received = obj.receipts.filter(received_by__profile__role='CEO_SECRETARY').exists()
+                return not already_received
+            if profile.role != 'CXO_SECRETARY' or not profile.department:
+                return False
+            user_dept_id = profile.department_id
+            is_directed = obj.directed_offices.filter(id=user_dept_id).exists()
+            already_received = obj.receipts.filter(department_id=user_dept_id).exists()
+            return is_directed and not already_received
         # Scenarios where CEO Secretary receives
         if self._receipt_by_ceo_secretary(scenario, obj):
             if profile.role not in ['CEO_SECRETARY', 'SUPER_ADMIN']:
@@ -377,6 +431,14 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
         if not self._needs_receipt(scenario):
             return []
         received_dept_ids = set(obj.receipts.values_list('department_id', flat=True))
+        # Scenario 15: show CEO office + directed offices pending
+        if scenario == 15:
+            pending = []
+            if not obj.receipts.filter(received_by__profile__role='CEO_SECRETARY').exists():
+                pending.append({'id': 0, 'name': 'CEO Office', 'code': 'CEO'})
+            pending_directed = obj.directed_offices.exclude(id__in=received_dept_ids)
+            pending.extend([{'id': d.id, 'name': d.name, 'code': d.code} for d in pending_directed])
+            return pending
         # Scenarios where CEO Secretary receives - show CEO office as pending
         if self._receipt_by_ceo_secretary(scenario, obj):
             if not obj.receipts.filter(received_by__profile__role='CEO_SECRETARY').exists():
@@ -395,7 +457,6 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
 
 class DocumentCreateSerializer(serializers.ModelSerializer):
     attachments = serializers.ListField(child=serializers.FileField(), write_only=True, required=False)
-    ec_year = serializers.IntegerField()
     ref_no = serializers.CharField(max_length=100)
     department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), required=False, allow_null=True)
     co_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
@@ -406,7 +467,7 @@ class DocumentCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Document
-        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'priority', 'confidentiality', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'company_office_name', 'cc_external_names', 'co_offices', 'co_office', 'cc_offices', 'directed_offices', 'directed_office', 'ceo_note', 'signature_name', 'department', 'ec_year', 'requires_ceo_direction', 'attachments', 'status']
+        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'priority', 'confidentiality', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'company_office_name', 'cc_external_names', 'co_offices', 'co_office', 'cc_offices', 'directed_offices', 'directed_office', 'ceo_note', 'signature_name', 'department', 'requires_ceo_direction', 'attachments', 'status']
         read_only_fields = ['id', 'status']
 
     def create(self, validated_data):

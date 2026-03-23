@@ -29,6 +29,7 @@ export default function UserManagement() {
   const toast = useToast()
   const [form, setForm] = useState({
     username: '',
+    user_id: '',
     email: '',
     first_name: '',
     last_name: '',
@@ -62,6 +63,7 @@ export default function UserManagement() {
   const resetForm = () => {
     setForm({
       username: '',
+      user_id: '',
       email: '',
       first_name: '',
       last_name: '',
@@ -78,6 +80,7 @@ export default function UserManagement() {
     
     try {
       const data = { ...form }
+      if (!data.username) delete data.username
       if (!data.department) delete data.department
       else data.department = parseInt(data.department)
       
@@ -102,6 +105,7 @@ export default function UserManagement() {
   const handleEdit = (user) => {
     setForm({
       username: user.username,
+      user_id: user.profile?.user_id || '',
       email: user.email || '',
       first_name: user.first_name || '',
       last_name: user.last_name || '',
@@ -197,12 +201,12 @@ export default function UserManagement() {
             <form onSubmit={handleSubmit} className="p-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('username')} <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('user_id')} <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white"
-                    value={form.username}
-                    onChange={(e) => setForm({ ...form, username: e.target.value })}
+                    value={form.user_id}
+                    onChange={(e) => setForm({ ...form, user_id: e.target.value })}
                     required
                                       />
                 </div>
@@ -351,7 +355,9 @@ export default function UserManagement() {
               <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
                 <td className="px-4 py-3">
                   <div className="font-medium text-slate-800 dark:text-white">{user.first_name} {user.last_name}</div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">@{user.username}</div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
+                    {user.profile?.role === 'SUPER_ADMIN' ? user.username : (user.profile?.user_id || user.username)}
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${

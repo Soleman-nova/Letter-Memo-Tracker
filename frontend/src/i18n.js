@@ -21,7 +21,6 @@ const resources = {
       outgoing: 'Outgoing',
       memo: 'Memo',
       department: 'Department',
-      ec_year: 'EC Year',
       attachments: 'Attachments',
       save: 'Save',
       search: 'Search',
@@ -98,6 +97,7 @@ const resources = {
       activity_log: 'Activity Log',
       delivery_status: 'Delivery Status',
       cc_acknowledgments: 'CC Office Acknowledgments (Mark as Seen)',
+      cc: 'cc',
       all_types: 'All Types',
       all_statuses: 'All Statuses',
       filters: 'Filters',
@@ -143,8 +143,7 @@ const resources = {
       ph_leave_empty_ceo: 'Leave empty for CEO, or select CxO offices',
       ph_ceo_notes: "CEO's instructions or notes",
       ph_summary: 'Brief summary or additional notes about this document',
-      ph_ref_no: 'e.g., CEO/001/18 EC',
-      ph_ec_year: 'e.g., 18',
+      ph_ref_no: 'e.g., 01.01/001/18',
       // Edit mode
       document_summary: 'Document Summary (Read Only)',
       ceo_direction_step: 'CEO Direction (Step 2)',
@@ -174,6 +173,7 @@ const resources = {
       recent_documents: 'Recent documents',
       // Documents list
       type: 'Type',
+      destination: 'Destination',
       // User management
       user_management: 'User Management',
       add_user: 'Add User',
@@ -278,7 +278,6 @@ const resources = {
       outgoing: 'ወጪ',
       memo: 'ማስታወሻ',
       department: 'መምሪያ',
-      ec_year: 'ዓ.ም ዓመት',
       attachments: 'አባሪ ፋይሎች',
       save: 'አስቀምጥ',
       search: 'ፈልግ',
@@ -299,7 +298,7 @@ const resources = {
       date_range_filter: 'በቀን ክልል ማጣሪያ',
       clear_date_filter: 'የቀን ማጣሪያ አጽዳ',
       // Form fields
-      company_office_name: 'የኩባንያ/ቢሮ ስም',
+      company_office_name: 'የኩባንያ/ቢሮ/ተቋም ስም',
       co_office: 'የሲ.ኤክስ.ኦ ቢሮ',
       directed_office: 'የተመራበት ቢሮ',
       ceo_note: 'የCEO አቅጣጫ',
@@ -355,6 +354,7 @@ const resources = {
       activity_log: 'የእንቅስቃሴ ዝርዝር',
       delivery_status: 'የማድረስ ሁኔታ',
       cc_acknowledgments: 'ግልባጭ ቢሮ ማረጋገጫ (ታይቷል ምልክት አድርግ)',
+      cc: 'cc',
       all_types: 'ሁሉም አይነቶች',
       all_statuses: 'ሁሉም ሁኔታዎች',
       filters: 'ማጣሪያዎች',
@@ -381,7 +381,7 @@ const resources = {
       // Form labels
       from_office_cxo: 'ከ ቢሮ (CxO)',
       to_cxo_offices: 'ወደ (CxO ቢሮዎች)',
-      to_company_agency: 'ወደ (ኩባንያ/ኤጀንሲ ስሞች)',
+      to_company_agency: 'ወደ (ኩባንያ/ኤጀንሲ/ተቋም ስሞች)',
       to_dest_cxo: 'ወደ (መድረሻ CxO ቢሮዎች)',
       direct_to_cxo: 'ወደ (CxO ቢሮዎች) አቅጣጫ ስጥ',
       cc_cxo_optional: 'ግልባጭ (CxO ቢሮዎች - አማራጭ)',
@@ -400,8 +400,7 @@ const resources = {
       ph_leave_empty_ceo: 'ለCEO ባዶ ይተውት ወይም CxO ቢሮዎችን ይምረጡ',
       ph_ceo_notes: 'የCEO መመሪያዎች ወይም ማስታወሻዎች',
       ph_summary: 'ስለዚህ ሰነድ አጭር ማጠቃለያ ወይም ተጨማሪ ማስታወሻዎች',
-      ph_ref_no: 'ለምሳሌ፣ CEO/001/18 EC',
-      ph_ec_year: 'ለምሳሌ፣ 18',
+      ph_ref_no: 'ለምሳሌ፣ 01.01/001/18',
       // Edit mode
       document_summary: 'የሰነድ ማጠቃለያ (ለንባብ ብቻ)',
       ceo_direction_step: 'የCEO መመሪያ (ደረጃ 2)',
@@ -431,6 +430,7 @@ const resources = {
       recent_documents: 'የቅርብ ጊዜ ሰነዶች',
       // Documents list
       type: 'አይነት',
+      destination: 'መድረሻ',
       // User management
       user_management: 'የተጠቃሚ አስተዳደር',
       add_user: 'ተጠቃሚ ጨምር',
