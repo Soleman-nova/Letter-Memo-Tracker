@@ -6,10 +6,10 @@ from django.utils import timezone
 
 from .models import Payment, PaymentHistory
 from .serializers import (
-    PaymentSerializer, PaymentCreateSerializer, PaymentUpdateSerializer, 
-    PaymentApprovalSerializer, PaymentHistorySerializer
+    PaymentSerializer, PaymentCreateSerializer, PaymentUpdateSerializer,
+    PaymentHistorySerializer
 )
-from .permissions import IsCEO, IsCEOSecretary
+from .permissions import IsCEO, IsCEOSecretary, IsCEOOrCEOSecretary
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
@@ -22,8 +22,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
             return PaymentCreateSerializer
         elif self.action in ['update', 'partial_update']:
             return PaymentUpdateSerializer
-        elif self.action == 'approve':
-            return PaymentApprovalSerializer
         return PaymentSerializer
     
     def get_queryset(self):
@@ -33,13 +31,28 @@ class PaymentViewSet(viewsets.ModelViewSet):
         
         # Role-based filtering
         if IsCEO().has_permission(self.request, self):
+            # CEO should not see ARRIVED payments
             queryset = queryset.exclude(status='ARRIVED')
         elif IsCEOSecretary().has_permission(self.request, self):
             pass  # Can see all payments
         else:
-            queryset = queryset.filter(status='APPROVED')
+            # Non-CEO users only see processed payments
+            queryset = queryset.filter(status='PROCESSED')
         
         # Manual filtering based on query parameters
+        search = self.request.query_params.get('search')
+        if search:
+            from django.db.models import Q
+            queryset = queryset.filter(
+                Q(temp_ref_no__icontains=search) |
+                Q(ref_no__icontains=search) |
+                Q(tt_number__icontains=search) |
+                Q(vendor_name__icontains=search) |
+                Q(invoice_number__icontains=search) |
+                Q(description__icontains=search) |
+                Q(amount__icontains=search)
+            )
+
         status = self.request.query_params.get('status')
         if status:
             queryset = queryset.filter(status=status)
@@ -61,50 +74,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Set registered_by to current user"""
         serializer.save()
-    
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsCEO])
-    def approve(self, request, pk=None):
-        """CEO approval/rejection endpoint"""
-        payment = self.get_object()
-        
-        if payment.status not in ['REGISTERED', 'PENDING_CEO']:
-            return Response(
-                {'error': 'Payment cannot be approved in current status'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        serializer = self.get_serializer(payment, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        
-        return Response(serializer.data)
-    
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsCEOSecretary])
-    def mark_pending_ceo(self, request, pk=None):
-        """Mark payment as pending CEO review"""
-        payment = self.get_object()
-        
-        if payment.status != 'REGISTERED':
-            return Response(
-                {'error': 'Only registered payments can be marked as pending CEO'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        payment.status = 'PENDING_CEO'
-        payment.save()
-        
-        # Create history record
-        PaymentHistory.objects.create(
-            payment=payment,
-            action='MARKED_PENDING_CEO',
-            old_status='REGISTERED',
-            new_status='PENDING_CEO',
-            notes='Payment marked as pending CEO review',
-            performed_by=request.user
-        )
-        
-        return Response({'status': 'Payment marked as pending CEO review'})
-    
+
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def history(self, request, pk=None):
         """Get payment history"""
@@ -112,6 +82,38 @@ class PaymentViewSet(viewsets.ModelViewSet):
         history = payment.history.all()
         serializer = PaymentHistorySerializer(history, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsCEOOrCEOSecretary])
+    def monthly_summary(self, request):
+        """Return monthly payment totals and counts for a given year/month."""
+        year = int(request.query_params.get('year', timezone.now().year))
+        month = request.query_params.get('month')
+
+        # Filter by registration_date since payment_date might be null initially
+        qs = Payment.objects.filter(registration_date__year=year)
+        if month:
+            qs = qs.filter(registration_date__month=int(month))
+
+        from django.db.models import Sum, Count
+
+        total_count = qs.count()
+        total_by_currency = qs.values('currency').annotate(
+            total_amount=Sum('amount'), 
+            count=Count('id')
+        )
+        
+        # Additional details
+        by_status = qs.values('status').annotate(count=Count('id'))
+        by_type = qs.values('payment_type').annotate(count=Count('id'))
+
+        return Response({
+            'year': year,
+            'month': int(month) if month else None,
+            'total_count': total_count,
+            'totals': list(total_by_currency),
+            'by_status': list(by_status),
+            'by_type': list(by_type),
+        })
 
 
 class PaymentHistoryViewSet(viewsets.ReadOnlyModelViewSet):

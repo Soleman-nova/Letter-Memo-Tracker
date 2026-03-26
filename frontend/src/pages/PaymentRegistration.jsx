@@ -11,6 +11,7 @@ const PaymentRegistration = ({ onPaymentCreated }) => {
   const [loading, setLoading] = useState(false)
   
   const [form, setForm] = useState({
+    temp_ref_no: '',
     ref_no: '',
     tt_number: '',
     arrival_date: '',
@@ -68,6 +69,7 @@ const PaymentRegistration = ({ onPaymentCreated }) => {
       
       // Reset form
       setForm({
+        temp_ref_no: '',
         ref_no: '',
         tt_number: '',
         arrival_date: '',
@@ -103,7 +105,7 @@ const PaymentRegistration = ({ onPaymentCreated }) => {
         <div>
           <h1 className="text-2xl font-semibold dark:text-white">Register Payment</h1>
           <div className="text-sm text-slate-500 dark:text-slate-400">
-            Register incoming payment letter for CEO approval
+            Register incoming payment letter from Finance
           </div>
         </div>
       </div>

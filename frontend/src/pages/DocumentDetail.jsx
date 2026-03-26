@@ -109,14 +109,14 @@ export default function DocumentDetail() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'REGISTERED': return 'bg-slate-100 text-slate-700'
-      case 'DIRECTED': return 'bg-blue-100 text-blue-700'
-      case 'DISPATCHED': return 'bg-orange-100 text-orange-700'
-      case 'RECEIVED': return 'bg-green-100 text-green-700'
-      case 'IN_PROGRESS': return 'bg-purple-100 text-purple-700'
-      case 'RESPONDED': return 'bg-teal-100 text-teal-700'
-      case 'CLOSED': return 'bg-gray-100 text-gray-700'
-      default: return 'bg-slate-100 text-slate-700'
+      case 'REGISTERED': return 'bg-slate-100 text-slate-700 dark:bg-slate-600 dark:text-slate-200'
+      case 'DIRECTED': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+      case 'DISPATCHED': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+      case 'RECEIVED': return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+      case 'IN_PROGRESS': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+      case 'RESPONDED': return 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'
+      case 'CLOSED': return 'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-200'
+      default: return 'bg-slate-100 text-slate-700 dark:bg-slate-600 dark:text-slate-200'
     }
   }
 

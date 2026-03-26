@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import api from '../api'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
+import { Search, Save, Bookmark, X } from 'lucide-react'
+import EthiopianDateInput from '../components/EthiopianDateInput'
 
 const PaymentList = () => {
   const { t } = useTranslation()
@@ -10,13 +12,24 @@ const PaymentList = () => {
   const toast = useToast()
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalCount: 0, pageSize: 10 })
+  const [editingPayment, setEditingPayment] = useState(null)
   const [showRegistration, setShowRegistration] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState({
     status: '',
     payment_type: '',
     priority: ''
   })
+  const [savedFilters, setSavedFilters] = useState([])
+  const [showSaveFilter, setShowSaveFilter] = useState(false)
+  const [filterName, setFilterName] = useState('')
+  const [duplicateWarning, setDuplicateWarning] = useState(null)
+  const [vendorNames, setVendorNames] = useState([])
+  const [showVendorSuggestions, setShowVendorSuggestions] = useState(false)
+  const [filteredVendors, setFilteredVendors] = useState([])
   const [registrationForm, setRegistrationForm] = useState({
+    temp_ref_no: '',
     ref_no: '',
     tt_number: '',
     arrival_date: '',
@@ -31,11 +44,56 @@ const PaymentList = () => {
     priority: 'NORMAL'
   })
 
+  // Load saved filters from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('payment_saved_filters')
+    if (saved) {
+      try {
+        setSavedFilters(JSON.parse(saved))
+      } catch (e) {
+        console.error('Error loading saved filters:', e)
+        localStorage.removeItem('payment_saved_filters')
+        toast.error('Saved filters were corrupted and have been cleared')
+      }
+    }
+  }, [])
+
   useEffect(() => {
     fetchPayments()
   }, [filters])
 
-  const fetchPayments = async () => {
+  // Real-time search effect with debounce
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchPayments()
+    }, 300) // 300ms debounce for smooth typing experience
+
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery])
+
+  // Check for duplicates when key fields change (with debouncing)
+  useEffect(() => {
+    if (showRegistration && isCeoSecretary && !editingPayment) {
+      const timeoutId = setTimeout(() => {
+        const duplicate = checkForDuplicates()
+        setDuplicateWarning(duplicate)
+      }, 500) // 500ms debounce delay
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [registrationForm.invoice_number, registrationForm.tt_number, registrationForm.vendor_name, registrationForm.amount])
+
+  // Extract unique vendor names from payments for autocomplete
+  useEffect(() => {
+    const uniqueVendors = [...new Set(
+      payments
+        .map(p => p.vendor_name)
+        .filter(name => name && name.trim())
+    )].sort()
+    setVendorNames(uniqueVendors)
+  }, [payments])
+
+  const fetchPayments = async (page = pagination.currentPage) => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -43,8 +101,30 @@ const PaymentList = () => {
         if (value) params.append(key, value)
       })
       
+      // Add search query to params
+      if (searchQuery.trim()) {
+        params.append('search', searchQuery.trim())
+      }
+      
+      // Add pagination params
+      params.append('page', page)
+      params.append('page_size', pagination.pageSize)
+      
       const response = await api.get(`/api/payments/payments/?${params.toString()}`)
-      setPayments(response.data.results || response.data)
+      
+      // Handle paginated response
+      if (response.data.results) {
+        setPayments(response.data.results)
+        setPagination(prev => ({
+          ...prev,
+          currentPage: page,
+          totalPages: Math.ceil(response.data.count / prev.pageSize),
+          totalCount: response.data.count
+        }))
+      } else {
+        // Fallback for non-paginated response
+        setPayments(response.data)
+      }
     } catch (error) {
       console.error('Error fetching payments:', error)
       toast.error('Failed to load payments')
@@ -53,38 +133,204 @@ const PaymentList = () => {
     }
   }
 
+  const resetRegistrationForm = () => {
+    setRegistrationForm({
+      temp_ref_no: '',
+      ref_no: '',
+      tt_number: '',
+      arrival_date: '',
+      amount: '',
+      currency: 'ETB',
+      payment_type: 'INVOICE',
+      vendor_name: '',
+      invoice_number: '',
+      description: '',
+      payment_date: '',
+      due_date: '',
+      priority: 'NORMAL'
+    })
+    setEditingPayment(null)
+    setDuplicateWarning(null)
+  }
+
   const handleRegistration = async () => {
     try {
-      const response = await api.post('/api/payments/payments/', registrationForm)
-      toast.success('Payment registered successfully')
+      const payload = { ...registrationForm };
+      
+      // Convert empty strings to null for optional fields
+      ['amount', 'arrival_date', 'payment_date', 'due_date', 'ref_no', 'temp_ref_no', 'tt_number', 'invoice_number', 'vendor_name', 'description'].forEach(field => {
+        if (payload[field] === '') {
+          payload[field] = null;
+        }
+      });
+
+      if (editingPayment) {
+        await api.patch(`/api/payments/payments/${editingPayment.id}/`, payload)
+        toast.success(t('payment_updated'))
+      } else {
+        await api.post('/api/payments/payments/', payload)
+        toast.success(t('payment_registered'))
+      }
+      
       setShowRegistration(false)
-      setRegistrationForm({
-        ref_no: '',
-        tt_number: '',
-        arrival_date: '',
-        amount: '',
-        currency: 'ETB',
-        payment_type: 'INVOICE',
-        vendor_name: '',
-        invoice_number: '',
-        description: '',
-        payment_date: '',
-        due_date: '',
-        priority: 'NORMAL'
-      })
+      resetRegistrationForm()
       fetchPayments()
     } catch (error) {
       console.error('Error registering payment:', error)
-      toast.error('Failed to register payment')
+      const errorData = error.response?.data
+      let errorMessage = 'Failed to register payment'
+      
+      if (errorData && typeof errorData === 'object') {
+        const firstError = Object.entries(errorData)[0]
+        if (firstError) {
+          errorMessage = `${firstError[0]}: ${firstError[1]}`
+        }
+      }
+      
+      toast.error(errorMessage)
     }
+  }
+
+  const saveCurrentFilter = () => {
+    if (!filterName.trim()) {
+      toast.error('Please enter a filter name')
+      return
+    }
+    
+    const newFilter = {
+      id: Date.now(),
+      name: filterName,
+      filters: { ...filters },
+      searchQuery: searchQuery
+    }
+    
+    const updated = [...savedFilters, newFilter]
+    setSavedFilters(updated)
+    localStorage.setItem('payment_saved_filters', JSON.stringify(updated))
+    setFilterName('')
+    setShowSaveFilter(false)
+    toast.success('Filter saved successfully')
+  }
+
+  const loadFilter = (savedFilter) => {
+    setFilters(savedFilter.filters)
+    setSearchQuery(savedFilter.searchQuery || '')
+    toast.success(`Loaded filter: ${savedFilter.name}`)
+  }
+
+  const deleteFilter = (filterId) => {
+    const updated = savedFilters.filter(f => f.id !== filterId)
+    setSavedFilters(updated)
+    localStorage.setItem('payment_saved_filters', JSON.stringify(updated))
+    toast.success('Filter deleted')
+  }
+
+  const clearAllFilters = () => {
+    setFilters({ status: '', payment_type: '', priority: '' })
+    setSearchQuery('')
+  }
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchPayments(newPage)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (pagination.currentPage < pagination.totalPages) {
+      fetchPayments(pagination.currentPage + 1)
+    }
+  }
+
+  const handlePreviousPage = () => {
+    if (pagination.currentPage > 1) {
+      fetchPayments(pagination.currentPage - 1)
+    }
+  }
+
+  const handleVendorNameChange = (value) => {
+    setRegistrationForm(prev => ({ ...prev, vendor_name: value }))
+    
+    if (value.trim().length > 0) {
+      const filtered = vendorNames.filter(name => 
+        name.toLowerCase().includes(value.toLowerCase())
+      )
+      setFilteredVendors(filtered)
+      setShowVendorSuggestions(filtered.length > 0)
+    } else {
+      setShowVendorSuggestions(false)
+      setFilteredVendors([])
+    }
+  }
+
+  const selectVendor = (vendorName) => {
+    setRegistrationForm(prev => ({ ...prev, vendor_name: vendorName }))
+    setShowVendorSuggestions(false)
+    setFilteredVendors([])
+  }
+
+  const checkForDuplicates = () => {
+    if (!isCeoSecretary) return null
+
+    const { invoice_number, tt_number, vendor_name, amount } = registrationForm
+    
+    // Check for exact matches on invoice or TT number
+    const exactMatch = payments.find(p => 
+      (invoice_number && p.invoice_number === invoice_number) ||
+      (tt_number && p.tt_number === tt_number)
+    )
+    
+    if (exactMatch) {
+      return {
+        type: 'exact',
+        payment: exactMatch,
+        message: `${t('possible_duplicate')}: ${exactMatch.ref_no || exactMatch.temp_ref_no}`
+      }
+    }
+
+    // Check for similar vendor and amount
+    if (vendor_name && amount) {
+      const similarMatch = payments.find(p => 
+        p.vendor_name?.toLowerCase() === vendor_name.toLowerCase() &&
+        Math.abs(parseFloat(p.amount) - parseFloat(amount)) < 0.01
+      )
+      
+      if (similarMatch) {
+        return {
+          type: 'similar',
+          payment: similarMatch,
+          message: `${t('duplicate_warning')}: ${similarMatch.vendor_name} - ${similarMatch.amount} ${similarMatch.currency}`
+        }
+      }
+    }
+
+    return null
+  }
+
+  const handleEdit = (payment) => {
+    setEditingPayment(payment)
+    setRegistrationForm({
+      temp_ref_no: payment.temp_ref_no || '',
+      ref_no: payment.ref_no || '',
+      tt_number: payment.tt_number || '',
+      arrival_date: payment.arrival_date || '',
+      amount: payment.amount || '',
+      currency: payment.currency || 'ETB',
+      payment_type: payment.payment_type || 'INVOICE',
+      vendor_name: payment.vendor_name || '',
+      invoice_number: payment.invoice_number || '',
+      description: payment.description || '',
+      payment_date: payment.payment_date || '',
+      due_date: payment.due_date || '',
+      priority: payment.priority || 'NORMAL'
+    })
+    setShowRegistration(true)
   }
 
   const statusColors = {
     'ARRIVED': 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400',
     'REGISTERED': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400',
-    'PENDING_CEO': 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400',
-    'APPROVED': 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
-    'REJECTED': 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
+    'PROCESSED': 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
   }
 
   const priorityColors = {
@@ -103,9 +349,9 @@ const PaymentList = () => {
             <span className="text-indigo-600 dark:text-indigo-400">💰</span>
           </div>
           <div>
-            <h1 className="text-2xl font-semibold dark:text-white">Financial Payments</h1>
+            <h1 className="text-2xl font-semibold dark:text-white">{t('financial_payments')}</h1>
             <div className="text-sm text-slate-500 dark:text-slate-400">
-              Manage payment approvals and tracking
+              {t('manage_payment_approvals')}
             </div>
           </div>
         </div>
@@ -115,89 +361,192 @@ const PaymentList = () => {
             className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2"
           >
             <span>➕</span>
-            Register Payment
+            {t('register_payment')}
           </button>
         )}
       </div>
 
-      {/* Filters */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow p-4">
+      {/* Search and Filters */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow p-4 space-y-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder={t('search_payments')}
+            className="w-full pl-10 pr-10 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1 dark:text-white">Status</label>
+            <label className="block text-sm font-medium mb-1 dark:text-white">{t('status')}</label>
             <select
               className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
               value={filters.status}
               onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
             >
-              <option value="">All Statuses</option>
-              <option value="ARRIVED">Arrived</option>
-              <option value="REGISTERED">Registered</option>
-              <option value="PENDING_CEO">Pending CEO</option>
-              <option value="APPROVED">Approved</option>
-              <option value="REJECTED">Rejected</option>
+              <option value="">{t('all_statuses')}</option>
+              <option value="ARRIVED">{t('arrived')}</option>
+              <option value="REGISTERED">{t('registered')}</option>
+              <option value="PROCESSED">{t('processed')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1 dark:text-white">Payment Type</label>
+            <label className="block text-sm font-medium mb-1 dark:text-white">{t('payment_type')}</label>
             <select
               className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
               value={filters.payment_type}
               onChange={(e) => setFilters(prev => ({ ...prev, payment_type: e.target.value }))}
             >
-              <option value="">All Types</option>
-              <option value="INVOICE">Invoice</option>
-              <option value="EXPENSE">Expense</option>
-              <option value="SALARY">Salary</option>
-              <option value="CONTRACT">Contract</option>
-              <option value="OTHER">Other</option>
+              <option value="">{t('all_types')}</option>
+              <option value="INVOICE">{t('invoice')}</option>
+              <option value="EXPENSE">{t('expense')}</option>
+              <option value="SALARY">{t('salary')}</option>
+              <option value="CONTRACT">{t('contract')}</option>
+              <option value="OTHER">{t('other')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1 dark:text-white">Priority</label>
+            <label className="block text-sm font-medium mb-1 dark:text-white">{t('priority')}</label>
             <select
               className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
               value={filters.priority}
               onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
             >
-              <option value="">All Priorities</option>
-              <option value="LOW">Low</option>
-              <option value="NORMAL">Normal</option>
-              <option value="HIGH">High</option>
-              <option value="URGENT">Urgent</option>
+              <option value="">{t('all_priorities')}</option>
+              <option value="LOW">{t('low')}</option>
+              <option value="NORMAL">{t('normal')}</option>
+              <option value="HIGH">{t('high')}</option>
+              <option value="URGENT">{t('urgent')}</option>
             </select>
           </div>
         </div>
+
+        {/* Filter Actions */}
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+          <button
+            onClick={() => setShowSaveFilter(true)}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg flex items-center gap-1"
+          >
+            <Save className="w-4 h-4" />
+            {t('save_filter')}
+          </button>
+          <button
+            onClick={clearAllFilters}
+            className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm rounded-lg"
+          >
+            {t('clear_filters')}
+          </button>
+        </div>
+
+        {/* Saved Filters */}
+        {savedFilters.length > 0 && (
+          <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-2 mb-2">
+              <Bookmark className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('saved_filters')}</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {savedFilters.map(savedFilter => (
+                <div
+                  key={savedFilter.id}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg text-sm"
+                >
+                  <button
+                    onClick={() => loadFilter(savedFilter)}
+                    className="hover:underline"
+                  >
+                    {savedFilter.name}
+                  </button>
+                  <button
+                    onClick={() => deleteFilter(savedFilter.id)}
+                    className="hover:text-red-600 dark:hover:text-red-400"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Save Filter Modal */}
+      {showSaveFilter && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold mb-4 dark:text-white">{t('save_filter')}</h3>
+            <input
+              type="text"
+              placeholder={t('filter_name')}
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 mb-4 bg-white dark:bg-slate-700 dark:text-white"
+              value={filterName}
+              onChange={(e) => setFilterName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && saveCurrentFilter()}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowSaveFilter(false)
+                  setFilterName('')
+                }}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                onClick={saveCurrentFilter}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                {t('save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Payments List */}
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow">
         {loading ? (
           <div className="text-center py-8">
-            <div className="text-slate-500 dark:text-slate-400">Loading payments...</div>
+            <div className="text-slate-500 dark:text-slate-400">{t('loading')}...</div>
           </div>
         ) : payments.length === 0 ? (
           <div className="text-center py-8">
-            <div className="text-slate-500 dark:text-slate-400">No payments found</div>
+            <div className="text-slate-500 dark:text-slate-400">{t('no_payments')}</div>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="border-b border-slate-200 dark:border-slate-700">
                 <tr>
-                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">Reference</th>
-                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">Vendor</th>
-                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">Amount</th>
-                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">Type</th>
-                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">Status</th>
-                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">Priority</th>
+                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('reference')}</th>
+                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('vendor')}</th>
+                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('amount')}</th>
+                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('type')}</th>
+                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('status')}</th>
+                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('priority')}</th>
+                  {isCeoSecretary && <th className="text-right p-4 font-medium text-slate-900 dark:text-slate-100">{t('actions')}</th>}
                 </tr>
               </thead>
               <tbody>
                 {payments.map((payment) => (
                   <tr key={payment.id} className="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50">
                     <td className="p-4">
-                      <div className="font-medium dark:text-white">{payment.ref_no || 'Unregistered'}</div>
+                      <div className="font-medium dark:text-white">{payment.ref_no || payment.temp_ref_no || 'Unregistered'}</div>
+                      {payment.temp_ref_no && !payment.ref_no && (
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Temp ref</div>
+                      )}
                       {payment.tt_number && (
                         <div className="text-sm text-slate-500 dark:text-slate-400">TT: {payment.tt_number}</div>
                       )}
@@ -228,10 +577,78 @@ const PaymentList = () => {
                         {payment.priority_display}
                       </span>
                     </td>
+                    {isCeoSecretary && (
+                      <td className="p-4 text-right">
+                        <button
+                          onClick={() => handleEdit(payment)}
+                          className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium text-sm"
+                        >
+                          {t('edit')}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && payments.length > 0 && pagination.totalPages > 1 && (
+          <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+            <div className="text-sm text-slate-600 dark:text-slate-400">
+              {t('showing')} {((pagination.currentPage - 1) * pagination.pageSize) + 1} - {Math.min(pagination.currentPage * pagination.pageSize, pagination.totalCount)} {t('of')} {pagination.totalCount} {t('payments')}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePreviousPage}
+                disabled={pagination.currentPage === 1}
+                className="px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {t('previous')}
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {[...Array(pagination.totalPages)].map((_, index) => {
+                  const pageNum = index + 1
+                  // Show first page, last page, current page, and pages around current
+                  if (
+                    pageNum === 1 ||
+                    pageNum === pagination.totalPages ||
+                    (pageNum >= pagination.currentPage - 1 && pageNum <= pagination.currentPage + 1)
+                  ) {
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                          pageNum === pagination.currentPage
+                            ? 'bg-indigo-600 text-white'
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    )
+                  } else if (
+                    pageNum === pagination.currentPage - 2 ||
+                    pageNum === pagination.currentPage + 2
+                  ) {
+                    return <span key={pageNum} className="text-slate-400">...</span>
+                  }
+                  return null
+                })}
+              </div>
+
+              <button
+                onClick={handleNextPage}
+                disabled={pagination.currentPage === pagination.totalPages}
+                className="px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {t('next')}
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -242,61 +659,90 @@ const PaymentList = () => {
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold dark:text-white">Register New Payment</h2>
+                <h2 className="text-xl font-semibold dark:text-white">
+                  {editingPayment ? t('edit_payment') : t('register_new_payment')}
+                </h2>
                 <button
-                  onClick={() => setShowRegistration(false)}
+                  onClick={() => {
+                    setShowRegistration(false)
+                    resetRegistrationForm()
+                  }}
                   className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                 >
                   ✕
                 </button>
               </div>
+
+              {/* Duplicate Warning */}
+              {duplicateWarning && (
+                <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <span className="text-amber-600 dark:text-amber-400 text-lg">⚠️</span>
+                    <div>
+                      <div className="font-semibold text-amber-800 dark:text-amber-300">{duplicateWarning.message}</div>
+                      <div className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                        Please verify this is not a duplicate payment before proceeding.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-white">Reference Number</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('temp_ref_optional')}</label>
+                  <input
+                    type="text"
+                    className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
+                    value={registrationForm.temp_ref_no}
+                    onChange={(e) => setRegistrationForm(prev => ({ ...prev, temp_ref_no: e.target.value }))}
+                    placeholder={t('ph_temp_ref')}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('official_ref_optional')}</label>
                   <input
                     type="text"
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
                     value={registrationForm.ref_no}
                     onChange={(e) => setRegistrationForm(prev => ({ ...prev, ref_no: e.target.value }))}
-                    placeholder="Enter reference number"
+                    placeholder={t('ph_official_ref')}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-white">TT Number (Optional)</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('tt_number_optional')}</label>
                   <input
                     type="text"
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
                     value={registrationForm.tt_number}
                     onChange={(e) => setRegistrationForm(prev => ({ ...prev, tt_number: e.target.value }))}
-                    placeholder="Enter TT number"
+                    placeholder={t('ph_tt_number')}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-white">Arrival Date</label>
-                  <input
-                    type="date"
-                    className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
+                  <EthiopianDateInput
+                    label={t('arrival_date')}
                     value={registrationForm.arrival_date}
-                    onChange={(e) => setRegistrationForm(prev => ({ ...prev, arrival_date: e.target.value }))}
+                    onChange={(value) => setRegistrationForm(prev => ({ ...prev, arrival_date: value }))}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-white">Amount</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('amount')}</label>
                   <input
                     type="number"
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
                     value={registrationForm.amount}
                     onChange={(e) => setRegistrationForm(prev => ({ ...prev, amount: e.target.value }))}
-                    placeholder="Enter amount"
+                    placeholder={t('ph_amount')}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-white">Currency</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('currency')}</label>
                   <select
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
                     value={registrationForm.currency}
@@ -309,55 +755,79 @@ const PaymentList = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-white">Payment Type</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('payment_type')}</label>
                   <select
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
                     value={registrationForm.payment_type}
                     onChange={(e) => setRegistrationForm(prev => ({ ...prev, payment_type: e.target.value }))}
                   >
-                    <option value="INVOICE">Invoice</option>
-                    <option value="EXPENSE">Expense</option>
-                    <option value="SALARY">Salary</option>
-                    <option value="CONTRACT">Contract</option>
-                    <option value="OTHER">Other</option>
+                    <option value="INVOICE">{t('invoice')}</option>
+                    <option value="EXPENSE">{t('expense')}</option>
+                    <option value="SALARY">{t('salary')}</option>
+                    <option value="CONTRACT">{t('contract')}</option>
+                    <option value="OTHER">{t('other')}</option>
                   </select>
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-white">Vendor Name</label>
+                <div className="relative">
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('vendor_name')}</label>
                   <input
                     type="text"
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
                     value={registrationForm.vendor_name}
-                    onChange={(e) => setRegistrationForm(prev => ({ ...prev, vendor_name: e.target.value }))}
-                    placeholder="Enter vendor name"
+                    onChange={(e) => handleVendorNameChange(e.target.value)}
+                    onFocus={() => {
+                      if (registrationForm.vendor_name.trim().length > 0 && filteredVendors.length > 0) {
+                        setShowVendorSuggestions(true)
+                      }
+                    }}
+                    onBlur={() => {
+                      // Delay to allow click on suggestion
+                      setTimeout(() => setShowVendorSuggestions(false), 200)
+                    }}
+                    placeholder={t('ph_vendor_name')}
+                    autoComplete="off"
                   />
+                  {showVendorSuggestions && filteredVendors.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {filteredVendors.map((vendor, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => selectVendor(vendor)}
+                          className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-900 dark:text-white text-sm"
+                        >
+                          {vendor}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-white">Invoice Number</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('invoice_number')}</label>
                   <input
                     type="text"
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
                     value={registrationForm.invoice_number}
                     onChange={(e) => setRegistrationForm(prev => ({ ...prev, invoice_number: e.target.value }))}
-                    placeholder="Enter invoice number"
+                    placeholder={t('ph_invoice_number')}
                   />
                 </div>
                 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1 dark:text-white">Description</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('description')}</label>
                   <textarea
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
                     value={registrationForm.description}
                     onChange={(e) => setRegistrationForm(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Enter description"
+                    placeholder={t('ph_description')}
                     rows={3}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-white">Payment Date</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('payment_date')}</label>
                   <input
                     type="date"
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
@@ -367,7 +837,7 @@ const PaymentList = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-white">Due Date</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('due_date')}</label>
                   <input
                     type="date"
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
@@ -377,32 +847,35 @@ const PaymentList = () => {
                 </div>
                 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1 dark:text-white">Priority</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('priority')}</label>
                   <select
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
                     value={registrationForm.priority}
                     onChange={(e) => setRegistrationForm(prev => ({ ...prev, priority: e.target.value }))}
                   >
-                    <option value="LOW">Low</option>
-                    <option value="NORMAL">Normal</option>
-                    <option value="HIGH">High</option>
-                    <option value="URGENT">Urgent</option>
+                    <option value="LOW">{t('low')}</option>
+                    <option value="NORMAL">{t('normal')}</option>
+                    <option value="HIGH">{t('high')}</option>
+                    <option value="URGENT">{t('urgent')}</option>
                   </select>
                 </div>
               </div>
               
               <div className="flex justify-end gap-3 mt-6">
                 <button
-                  onClick={() => setShowRegistration(false)}
+                  onClick={() => {
+                    setShowRegistration(false)
+                    resetRegistrationForm()
+                  }}
                   className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   onClick={handleRegistration}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
                 >
-                  Register Payment
+                  {editingPayment ? t('update_payment') : t('register_payment')}
                 </button>
               </div>
             </div>

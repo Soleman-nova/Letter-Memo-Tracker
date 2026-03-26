@@ -9,7 +9,6 @@ User = get_user_model()
 class PaymentSerializer(serializers.ModelSerializer):
     """Base payment serializer"""
     registered_by_name = serializers.SerializerMethodField()
-    approved_by_name = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     payment_type_display = serializers.CharField(source='get_payment_type_display', read_only=True)
     priority_display = serializers.CharField(source='get_priority_display', read_only=True)
@@ -17,22 +16,28 @@ class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = [
-            'id', 'ref_no', 'tt_number', 'arrival_date', 'registration_date', 'registered_by', 'registered_by_name',
+            'id', 'temp_ref_no', 'ref_no', 'tt_number', 'arrival_date', 'registration_date', 'registered_by', 'registered_by_name',
             'amount', 'currency', 'payment_type', 'payment_type_display', 'vendor_name', 'invoice_number', 
             'description', 'payment_date', 'due_date', 'status', 'status_display', 'priority', 'priority_display',
-            'approved_by', 'approved_by_name', 'approval_date', 'ceo_notes',
-            'created_at', 'updated_at', 'is_registered', 'needs_ceo_approval', 'is_approved'
+            'created_at', 'updated_at', 'is_registered'
         ]
-        read_only_fields = ['registration_date', 'registered_by', 'approved_by', 'approval_date', 'created_at', 'updated_at']
+        read_only_fields = ['registration_date', 'registered_by', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'ref_no': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'temp_ref_no': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'tt_number': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'arrival_date': {'required': False, 'allow_null': True},
+            'payment_date': {'required': False, 'allow_null': True},
+            'due_date': {'required': False, 'allow_null': True},
+            'description': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'invoice_number': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'vendor_name': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'amount': {'required': False, 'allow_null': True},
+        }
     
     def get_registered_by_name(self, obj):
         if obj.registered_by:
             return f"{obj.registered_by.first_name} {obj.registered_by.last_name}".strip() or obj.registered_by.username
-        return None
-    
-    def get_approved_by_name(self, obj):
-        if obj.approved_by:
-            return f"{obj.approved_by.first_name} {obj.approved_by.last_name}".strip() or obj.approved_by.username
         return None
 
 
@@ -46,6 +51,12 @@ class PaymentCreateSerializer(PaymentSerializer):
     def create(self, validated_data):
         user = self.context['request'].user
         validated_data['registered_by'] = user
+        
+        # Convert empty strings to None for optional fields
+        for field in ['amount', 'arrival_date', 'payment_date', 'due_date']:
+            if field in validated_data and validated_data[field] == '':
+                validated_data[field] = None
+                
         validated_data['status'] = 'REGISTERED' if validated_data.get('ref_no') else 'ARRIVED'
         
         payment = super().create(validated_data)
@@ -67,7 +78,7 @@ class PaymentUpdateSerializer(PaymentSerializer):
     
     class Meta(PaymentSerializer.Meta):
         fields = [
-            'ref_no', 'tt_number', 'arrival_date', 'amount', 'currency', 'payment_type',
+            'temp_ref_no', 'ref_no', 'tt_number', 'arrival_date', 'amount', 'currency', 'payment_type',
             'vendor_name', 'invoice_number', 'description', 'payment_date', 'due_date', 'priority'
         ]
         read_only_fields = []
@@ -76,7 +87,12 @@ class PaymentUpdateSerializer(PaymentSerializer):
         user = self.context['request'].user
         old_status = instance.status
         
-        # Check if ref_no is being added (marking as registered)
+        # Convert empty strings to None for optional fields
+        for field in ['amount', 'arrival_date', 'payment_date', 'due_date']:
+            if field in validated_data and validated_data[field] == '':
+                validated_data[field] = None
+                
+        # If official ref_no is being added for the first time, mark as REGISTERED
         if not instance.ref_no and validated_data.get('ref_no'):
             validated_data['status'] = 'REGISTERED'
         

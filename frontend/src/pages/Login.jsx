@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { User, Lock } from 'lucide-react'
 import { login } from '../store/auth'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -75,30 +76,38 @@ export default function Login() {
             </div>
             <form onSubmit={submit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('user_id')}</label>
-                <input
-                  className="mt-1 block w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 p-2.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F0B429] focus:border-[#0B3C5D]"
-                  value={username}
-                  onChange={(e)=>setUsername(e.target.value)}
-                  placeholder="e.g., 123456"
-                  autoComplete="username"
-                />
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('username')}</label>
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <input
+                    className="mt-1 block w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 pl-10 pr-3 py-2.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F0B429] focus:border-[#0B3C5D]"
+                    value={username}
+                    onChange={(e)=>setUsername(e.target.value)}
+                    placeholder={t('ph_employee_id')}
+                    autoComplete="username"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('password')}</label>
                 <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+                  </div>
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    className="block w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 p-2.5 pr-20 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F0B429] focus:border-[#0B3C5D]"
+                    className="block w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 pl-10 pr-12 py-2.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F0B429] focus:border-[#0B3C5D]"
                     value={password}
                     onChange={(e)=>setPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder={t('ph_password')}
                     autoComplete="current-password"
                   />
                   <button
                     type="button"
                     onClick={()=>setShowPassword(v=>!v)}
-                    className="absolute inset-y-0 right-0 px-3 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                   >
                     {showPassword ? '🙈' : '👁'}
                   </button>

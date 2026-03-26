@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-r
 import { useTranslation } from 'react-i18next'
 import { getAccessToken, clearTokens } from './store/auth'
 import { useAuth } from './contexts/AuthContext'
-import { LayoutDashboard, FileText, FilePlus, LogOut, Globe, ChevronDown, Settings as SettingsIcon, Users, Sun, Moon, DollarSign } from 'lucide-react'
+import { LayoutDashboard, FileText, FilePlus, LogOut, Globe, ChevronDown, Settings as SettingsIcon, Users, Sun, Moon, DollarSign, TrendingUp } from 'lucide-react'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import DocumentsList from './pages/DocumentsList'
@@ -12,6 +12,7 @@ import DocumentDetail from './pages/DocumentDetail'
 import Settings from './pages/Settings'
 import UserManagement from './pages/UserManagement'
 import PaymentList from './pages/PaymentList'
+import PaymentReports from './pages/PaymentReports'
 
 function RequireAuth({ children }) {
   const authed = !!getAccessToken()
@@ -94,9 +95,9 @@ function NavBar() {
             <span>{i18n.language === 'am' ? 'አማ' : 'EN'}</span>
             <ChevronDown className="w-3.5 h-3.5" />
           </button>
-          <div className="absolute right-0 mt-1 w-28 rounded-lg bg-white text-slate-800 shadow-lg border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-            <button onClick={() => i18n.changeLanguage('en')} className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-t-lg ${i18n.language === 'en' ? 'font-semibold text-[#0B3C5D]' : ''}`}>English</button>
-            <button onClick={() => i18n.changeLanguage('am')} className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-b-lg ${i18n.language === 'am' ? 'font-semibold text-[#0B3C5D]' : ''}`}>አማርኛ</button>
+          <div className="absolute right-0 mt-1 w-28 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-lg border border-slate-200 dark:border-slate-600 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+            <button onClick={() => i18n.changeLanguage('en')} className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg ${i18n.language === 'en' ? 'font-semibold text-[#0B3C5D] dark:text-[#F0B429]' : ''}`}>English</button>
+            <button onClick={() => i18n.changeLanguage('am')} className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 rounded-b-lg ${i18n.language === 'am' ? 'font-semibold text-[#0B3C5D] dark:text-[#F0B429]' : ''}`}>አማርኛ</button>
           </div>
         </div>
         <button onClick={logout} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-red-500/80 text-sm font-medium transition-colors" title={t('logout')}>
@@ -118,7 +119,8 @@ function Sidebar() {
     { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), show: true },
     { to: '/documents', icon: FileText, label: t('documents'), show: true },
     { to: '/documents/new', icon: FilePlus, label: t('new_document'), show: canCreateDocuments },
-    { to: '/payments', icon: DollarSign, label: 'Financial Payments', show: isCeoSecretary || isCeo },
+    { to: '/payments', icon: DollarSign, label: t('payments'), show: isCeoSecretary || isCeo },
+    { to: '/payments/reports', icon: TrendingUp, label: t('payment_reports'), show: isCeoSecretary || isCeo },
     { to: '/users', icon: Users, label: t('user_management'), show: canManageUsers },
     { to: '/settings', icon: SettingsIcon, label: t('settings'), show: true },
   ].filter(item => item.show)
@@ -153,7 +155,9 @@ function Sidebar() {
         {navItems.map(({ to, icon: Icon, label }) => {
           const active = to === '/documents' 
             ? location.pathname === '/documents' || (location.pathname.startsWith('/documents/') && location.pathname !== '/documents/new')
-            : location.pathname === to || (to !== '/documents' && location.pathname.startsWith(to + '/'))
+            : to === '/payments' 
+            ? location.pathname === '/payments'
+            : location.pathname === to || (to !== '/documents' && to !== '/payments' && location.pathname.startsWith(to + '/'))
           return (
             <Link
               key={to}
@@ -189,6 +193,7 @@ export default function App() {
         <Route path="/documents/:id" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><DocumentDetail /></div></div></></RequireAuth>} />
         <Route path="/documents/:id/edit" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><DocumentForm /></div></div></></RequireAuth>} />
         <Route path="/payments" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><PaymentList /></div></div></></RequireAuth>} />
+        <Route path="/payments/reports" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><PaymentReports /></div></div></></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><Settings /></div></div></></RequireAuth>} />
         <Route path="/users" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><UserManagement /></div></div></></RequireAuth>} />
       </Routes>

@@ -5,8 +5,8 @@ from .models import Payment, PaymentHistory
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
     list_display = [
-        'ref_no', 'vendor_name', 'amount', 'currency', 'status', 
-        'payment_type', 'priority', 'registered_by', 'approved_by'
+        'temp_ref_no', 'ref_no', 'vendor_name', 'amount', 'currency', 'status',
+        'payment_type', 'priority', 'registered_by'
     ]
     list_filter = ['status', 'payment_type', 'priority', 'currency', 'created_at']
     search_fields = ['ref_no', 'tt_number', 'vendor_name', 'invoice_number']
@@ -14,14 +14,14 @@ class PaymentAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Registration Details', {
-            'fields': ('ref_no', 'tt_number', 'arrival_date', 'registered_by', 'registration_date')
+            'fields': ('temp_ref_no', 'ref_no', 'tt_number', 'arrival_date', 'registered_by', 'registration_date')
         }),
         ('Payment Information', {
             'fields': ('amount', 'currency', 'payment_type', 'vendor_name', 'invoice_number', 
                       'description', 'payment_date', 'due_date')
         }),
         ('Workflow', {
-            'fields': ('status', 'priority', 'approved_by', 'approval_date', 'ceo_notes')
+            'fields': ('status', 'priority')
         }),
         ('Metadata', {
             'fields': ('created_at', 'updated_at'),

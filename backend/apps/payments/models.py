@@ -4,13 +4,11 @@ from apps.core.models import Department
 
 User = get_user_model()
 
-# Payment status choices
+# Payment status choices (simplified workflow)
 PAYMENT_STATUSES = [
     ('ARRIVED', 'Arrived'),           # Letter arrived at CEO office
-    ('REGISTERED', 'Registered'),     # Secretary registered with ref_no
-    ('PENDING_CEO', 'Pending CEO'),   # Waiting for CEO approval
-    ('APPROVED', 'Approved'),         # CEO approved
-    ('REJECTED', 'Rejected'),         # CEO rejected
+    ('REGISTERED', 'Registered'),     # Secretary registered (ref/date assigned)
+    ('PROCESSED', 'Processed'),       # Fully processed/paid
 ]
 
 # Payment type choices
@@ -42,30 +40,26 @@ class Payment(models.Model):
     """Financial payment tracking model"""
     
     # Registration details
+    temp_ref_no = models.CharField(max_length=50, null=True, blank=True, help_text="Temporary reference before official number")
     ref_no = models.CharField(max_length=50, unique=True, null=True, blank=True)
     tt_number = models.CharField(max_length=50, unique=True, null=True, blank=True, help_text="Optional tracking number")
-    arrival_date = models.DateField(help_text="Date letter arrived at CEO office")
+    arrival_date = models.DateField(null=True, blank=True, help_text="Date letter arrived at CEO office")
     registration_date = models.DateTimeField(auto_now_add=True)
     registered_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='registered_payments')
     
     # Payment details
-    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     currency = models.CharField(max_length=3, choices=CURRENCIES, default='ETB')
     payment_type = models.CharField(max_length=20, choices=PAYMENT_TYPES)
-    vendor_name = models.CharField(max_length=200)
+    vendor_name = models.CharField(max_length=200, null=True, blank=True)
     invoice_number = models.CharField(max_length=100, null=True, blank=True)
-    description = models.TextField()
-    payment_date = models.DateField(help_text="Date of payment transaction")
+    description = models.TextField(null=True, blank=True)
+    payment_date = models.DateField(null=True, blank=True, help_text="Date of payment transaction")
     due_date = models.DateField(null=True, blank=True)
     
     # Workflow
     status = models.CharField(max_length=20, choices=PAYMENT_STATUSES, default='ARRIVED')
     priority = models.CharField(max_length=10, choices=PAYMENT_PRIORITY, default='NORMAL')
-    
-    # CEO approval
-    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_payments')
-    approval_date = models.DateTimeField(null=True, blank=True)
-    ceo_notes = models.TextField(null=True, blank=True)
     
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
@@ -75,7 +69,6 @@ class Payment(models.Model):
         ordering = ['-created_at']
         permissions = [
             ('can_register_payment', 'Can register payment'),
-            ('can_approve_payment', 'Can approve payment'),
             ('can_view_payment', 'Can view payment'),
         ]
     
@@ -85,14 +78,6 @@ class Payment(models.Model):
     @property
     def is_registered(self):
         return self.ref_no is not None and self.status != 'ARRIVED'
-    
-    @property
-    def needs_ceo_approval(self):
-        return self.status == 'PENDING_CEO'
-    
-    @property
-    def is_approved(self):
-        return self.status == 'APPROVED'
 
 
 class PaymentHistory(models.Model):
