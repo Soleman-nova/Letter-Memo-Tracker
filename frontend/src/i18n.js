@@ -283,6 +283,7 @@ const resources = {
       invoice_number: 'Invoice Number',
       description: 'Description',
       payment_date: 'Payment Date',
+      status_date: 'Status Date',
       arrived: 'Arrived',
       processed: 'Processed',
       invoice: 'Invoice',
@@ -331,8 +332,10 @@ const resources = {
       ph_description: 'Enter description',
       // Dashboard payment stats
       payment_overview: 'Quick overview of payment statistics',
-      pending_payments: 'Pending',
-      urgent_payments: 'Urgent',
+      arrived_payments: 'Arrived',
+      registered_payments: 'Registered',
+      total_amount_month: 'Total Amount (Month)',
+      this_month: 'This Month',
       this_week: 'This Week',
       view_all: 'View All',
       // Saved filters
@@ -356,6 +359,10 @@ const resources = {
       payments: 'payments',
       previous: 'Previous',
       next: 'Next',
+      items_per_page: 'Items per page',
+      // Date Filters
+      date_from: 'Date From',
+      date_to: 'Date To',
       // Months
       all_months: 'All Months',
       january: 'January',
@@ -653,6 +660,7 @@ const resources = {
       invoice_number: 'የደረሰኝ ቁጥር',
       description: 'መግለጫ',
       payment_date: 'የክፍያ ቀን',
+      status_date: 'የሁኔታ ቀን',
       arrived: 'ደርሷል',
       processed: 'ተሰርቷል',
       invoice: 'ደረሰኝ',
@@ -701,8 +709,10 @@ const resources = {
       ph_description: 'መግለጫ ያስገቡ',
       // Dashboard payment stats
       payment_overview: 'የክፍያ ስታቲስቲክስ አጠቃላይ እይታ',
-      pending_payments: 'በመጠባበቅ ላይ',
-      urgent_payments: 'አስቸኳይ',
+      arrived_payments: 'ደርሷል',
+      registered_payments: 'ተመዝግቧል',
+      total_amount_month: 'ጠቅላላ መጠን (ወር)',
+      this_month: 'በዚህ ወር',
       this_week: 'በዚህ ሳምንት',
       view_all: 'ሁሉንም ይመልከቱ',
       // Saved filters
@@ -726,6 +736,10 @@ const resources = {
       payments: 'ክፍያዎች',
       previous: 'ቀዳሚ',
       next: 'ቀጣይ',
+      items_per_page: 'በገጽ ላይ ያሉ ንጥሎች',
+      // Date Filters
+      date_from: 'ከቀን',
+      date_to: 'እስከ ቀን',
       // Months
       all_months: 'ሁሉም ወሮች',
       january: 'ጃንዋሪ',

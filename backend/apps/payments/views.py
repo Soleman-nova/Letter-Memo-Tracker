@@ -85,12 +85,17 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsCEOOrCEOSecretary])
     def monthly_summary(self, request):
-        """Return monthly payment totals and counts for a given year/month."""
+        """Return monthly payment totals and counts for a given year/month.
+        Only includes REGISTERED and PROCESSED payments (with Official Ref)."""
         year = int(request.query_params.get('year', timezone.now().year))
         month = request.query_params.get('month')
 
-        # Filter by registration_date since payment_date might be null initially
-        qs = Payment.objects.filter(registration_date__year=year)
+        # Filter by registration_date and only include REGISTERED/PROCESSED payments
+        # ARRIVED payments are excluded as they don't have Official Ref yet
+        qs = Payment.objects.filter(
+            registration_date__year=year,
+            status__in=['REGISTERED', 'PROCESSED']
+        )
         if month:
             qs = qs.filter(registration_date__month=int(month))
 

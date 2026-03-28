@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { Search, Save, Bookmark, X } from 'lucide-react'
 import EthiopianDateInput from '../components/EthiopianDateInput'
+import EthDateDisplay from '../components/EthDateDisplay'
 
 const PaymentList = () => {
   const { t } = useTranslation()
@@ -19,7 +20,8 @@ const PaymentList = () => {
   const [filters, setFilters] = useState({
     status: '',
     payment_type: '',
-    priority: ''
+    date_from: '',
+    date_to: ''
   })
   const [savedFilters, setSavedFilters] = useState([])
   const [showSaveFilter, setShowSaveFilter] = useState(false)
@@ -123,7 +125,14 @@ const PaymentList = () => {
         }))
       } else {
         // Fallback for non-paginated response
-        setPayments(response.data)
+        const list = Array.isArray(response.data) ? response.data : []
+        setPayments(list)
+        setPagination(prev => ({
+          ...prev,
+          currentPage: 1,
+          totalPages: list.length > 0 ? 1 : 0,
+          totalCount: list.length,
+        }))
       }
     } catch (error) {
       console.error('Error fetching payments:', error)
@@ -226,7 +235,7 @@ const PaymentList = () => {
   }
 
   const clearAllFilters = () => {
-    setFilters({ status: '', payment_type: '', priority: '' })
+    setFilters({ status: '', payment_type: '', date_from: '', date_to: '' })
     setSearchQuery('')
   }
 
@@ -246,6 +255,11 @@ const PaymentList = () => {
     if (pagination.currentPage > 1) {
       fetchPayments(pagination.currentPage - 1)
     }
+  }
+
+  const handlePageSizeChange = (newPageSize) => {
+    setPagination(prev => ({ ...prev, pageSize: newPageSize, currentPage: 1 }))
+    fetchPayments(1)
   }
 
   const handleVendorNameChange = (value) => {
@@ -340,6 +354,28 @@ const PaymentList = () => {
     'URGENT': 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
   }
 
+  const getStatusDate = (payment) => {
+    if (!payment) return null
+    if (payment.status === 'ARRIVED') {
+      return payment.arrival_date || payment.registration_date || payment.payment_date
+    }
+    if (payment.status === 'REGISTERED') {
+      return payment.registration_date || payment.arrival_date || payment.payment_date
+    }
+    if (payment.status === 'PROCESSED') {
+      return payment.payment_date || payment.registration_date || payment.arrival_date
+    }
+    return payment.registration_date || payment.payment_date || payment.arrival_date
+  }
+
+  const startItem = pagination.totalCount === 0
+    ? 0
+    : ((pagination.currentPage - 1) * pagination.pageSize) + 1
+
+  const endItem = pagination.totalCount === 0
+    ? 0
+    : Math.min(pagination.currentPage * pagination.pageSize, pagination.totalCount)
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -387,7 +423,7 @@ const PaymentList = () => {
             </button>
           )}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1 dark:text-white">{t('status')}</label>
             <select
@@ -417,18 +453,18 @@ const PaymentList = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1 dark:text-white">{t('priority')}</label>
-            <select
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"
-              value={filters.priority}
-              onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-            >
-              <option value="">{t('all_priorities')}</option>
-              <option value="LOW">{t('low')}</option>
-              <option value="NORMAL">{t('normal')}</option>
-              <option value="HIGH">{t('high')}</option>
-              <option value="URGENT">{t('urgent')}</option>
-            </select>
+            <EthiopianDateInput
+              label={t('date_from')}
+              value={filters.date_from}
+              onChange={(value) => setFilters(prev => ({ ...prev, date_from: value }))}
+            />
+          </div>
+          <div>
+            <EthiopianDateInput
+              label={t('date_to')}
+              value={filters.date_to}
+              onChange={(value) => setFilters(prev => ({ ...prev, date_to: value }))}
+            />
           </div>
         </div>
 
@@ -535,7 +571,7 @@ const PaymentList = () => {
                   <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('amount')}</th>
                   <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('type')}</th>
                   <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('status')}</th>
-                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('priority')}</th>
+                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('status_date')}</th>
                   {isCeoSecretary && <th className="text-right p-4 font-medium text-slate-900 dark:text-slate-100">{t('actions')}</th>}
                 </tr>
               </thead>
@@ -573,9 +609,14 @@ const PaymentList = () => {
                       </span>
                     </td>
                     <td className="p-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColors[payment.priority]}`}>
-                        {payment.priority_display}
-                      </span>
+                      {getStatusDate(payment) ? (
+                        <EthDateDisplay
+                          date={getStatusDate(payment)}
+                          className="text-sm text-slate-700 dark:text-slate-100"
+                        />
+                      ) : (
+                        <span className="text-xs text-slate-400 dark:text-slate-500">-</span>
+                      )}
                     </td>
                     {isCeoSecretary && (
                       <td className="p-4 text-right">
@@ -595,10 +636,25 @@ const PaymentList = () => {
         )}
 
         {/* Pagination */}
-        {!loading && payments.length > 0 && pagination.totalPages > 1 && (
+        {!loading && payments.length > 0 && (
           <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
-            <div className="text-sm text-slate-600 dark:text-slate-400">
-              {t('showing')} {((pagination.currentPage - 1) * pagination.pageSize) + 1} - {Math.min(pagination.currentPage * pagination.pageSize, pagination.totalCount)} {t('of')} {pagination.totalCount} {t('payments')}
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                {t('showing')} {startItem} - {endItem} {t('of')} {pagination.totalCount} {t('payments')}
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-slate-600 dark:text-slate-400">{t('items_per_page')}:</label>
+                <select
+                  value={pagination.pageSize}
+                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  className="border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1 text-sm bg-white dark:bg-slate-700 dark:text-white"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <button

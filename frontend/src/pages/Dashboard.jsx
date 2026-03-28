@@ -11,7 +11,7 @@ export default function Dashboard() {
   const { canCreateDocuments, isCeoSecretary, isCeo } = useAuth()
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ total: 0, incoming: 0, outgoing: 0, memo: 0, pending: 0, received: 0 })
-  const [paymentStats, setPaymentStats] = useState({ total: 0, pending: 0, urgent: 0, thisWeek: 0 })
+  const [paymentStats, setPaymentStats] = useState({ total: 0, totalAmountMonth: { ETB: 0, USD: 0, EUR: 0 }, thisMonth: 0, thisWeek: 0 })
   const [recent, setRecent] = useState([])
 
   useEffect(() => {
@@ -47,17 +47,29 @@ export default function Dashboard() {
           .slice(0, 6)
         setRecent(rec)
         
-        // Calculate payment stats
+        // Calculate payment stats - only count REGISTERED payments (with Official Ref)
         if (paymentsRes) {
           const payments = paymentsRes.data.results || paymentsRes.data || []
+          const registeredPayments = payments.filter(p => p.status === 'REGISTERED' || p.status === 'PROCESSED')
           const oneWeekAgo = new Date()
           oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+          const oneMonthAgo = new Date()
+          oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
+          
+          // Calculate total amounts by currency for this month
+          const thisMonthPayments = registeredPayments.filter(p => new Date(p.registration_date) >= oneMonthAgo)
+          const amountsByCurrency = thisMonthPayments.reduce((acc, payment) => {
+            const currency = payment.currency || 'ETB'
+            const amount = parseFloat(payment.amount) || 0
+            acc[currency] = (acc[currency] || 0) + amount
+            return acc
+          }, { ETB: 0, USD: 0, EUR: 0 })
           
           setPaymentStats({
-            total: payments.length,
-            pending: payments.filter(p => p.status === 'ARRIVED' || p.status === 'REGISTERED').length,
-            urgent: payments.filter(p => p.priority === 'URGENT').length,
-            thisWeek: payments.filter(p => new Date(p.registration_date) >= oneWeekAgo).length,
+            total: registeredPayments.length,
+            totalAmountMonth: amountsByCurrency,
+            thisMonth: thisMonthPayments.length,
+            thisWeek: registeredPayments.filter(p => new Date(p.registration_date) >= oneWeekAgo).length,
           })
         }
       } finally {
@@ -138,15 +150,30 @@ export default function Dashboard() {
               <div className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '…' : paymentStats.total}</div>
             </div>
             <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('pending_payments')}</div>
-              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{loading ? '…' : paymentStats.pending}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('total_amount_month')}</div>
+              {loading ? (
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">…</div>
+              ) : (
+                <div className="space-y-1">
+                  {Object.entries(paymentStats.totalAmountMonth).map(([currency, amount]) => (
+                    amount > 0 && (
+                      <div key={currency} className="flex items-baseline gap-1">
+                        <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                          {amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{currency}</span>
+                      </div>
+                    )
+                  ))}
+                  {Object.values(paymentStats.totalAmountMonth).every(v => v === 0) && (
+                    <div className="text-lg font-bold text-slate-400 dark:text-slate-500">0.00 ETB</div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('urgent_payments')}</div>
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
-                {loading ? '…' : paymentStats.urgent}
-                {!loading && paymentStats.urgent > 0 && <Zap className="w-4 h-4" />}
-              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('this_month')}</div>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{loading ? '…' : paymentStats.thisMonth}</div>
             </div>
             <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('this_week')}</div>
