@@ -112,15 +112,15 @@ function NavBar() {
 function Sidebar() {
   const { t } = useTranslation()
   const location = useLocation()
-  const { canManageUsers, canCreateDocuments, user, isCeoSecretary, isCeo } = useAuth()
+  const { canManageUsers, canCreateDocuments, user, isCeoSecretary, isCeo, isCxoFinance } = useAuth()
   
   // Build nav items based on permissions
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), show: true },
     { to: '/documents', icon: FileText, label: t('documents'), show: true },
     { to: '/documents/new', icon: FilePlus, label: t('new_document'), show: canCreateDocuments },
-    { to: '/payments', icon: DollarSign, label: t('payments'), show: isCeoSecretary || isCeo },
-    { to: '/payments/reports', icon: TrendingUp, label: t('payment_reports'), show: isCeoSecretary || isCeo },
+    { to: '/payments', icon: DollarSign, label: t('payments'), show: isCeoSecretary || isCeo || isCxoFinance },
+    { to: '/payments/reports', icon: TrendingUp, label: t('payment_reports'), show: isCeoSecretary || isCeo || isCxoFinance },
     { to: '/users', icon: Users, label: t('user_management'), show: canManageUsers },
     { to: '/settings', icon: SettingsIcon, label: t('settings'), show: true },
   ].filter(item => item.show)

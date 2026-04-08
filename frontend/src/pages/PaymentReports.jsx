@@ -3,13 +3,14 @@ import { useTranslation } from 'react-i18next'
 import api from '../api'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
-import { Calendar, Download, TrendingUp } from 'lucide-react'
+import { Calendar, Download, TrendingUp, FileSpreadsheet } from 'lucide-react'
 import EtDatePicker from 'mui-ethiopian-datepicker'
 import { EtLocalizationProvider } from 'mui-ethiopian-datepicker'
+import * as XLSX from 'xlsx'
 
 const PaymentReports = () => {
   const { t } = useTranslation()
-  const { user, isCeoSecretary, isCeo } = useAuth()
+  const { user, isCeoSecretary, isCeo, isCxoFinance } = useAuth()
   const toast = useToast()
   const [loading, setLoading] = useState(false)
   const [summary, setSummary] = useState(null)
@@ -19,7 +20,7 @@ const PaymentReports = () => {
   
   const [filters, setFilters] = useState({
     year: currentYear,
-    month: currentMonth
+    month: '' // Default to "All Months" instead of current month
   })
   const [useEthiopianCalendar, setUseEthiopianCalendar] = useState(true)
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -55,10 +56,10 @@ const PaymentReports = () => {
   const isAmharic = useTranslation().i18n.language === 'am'
 
   useEffect(() => {
-    if (isCeo || isCeoSecretary) {
+    if (isCeo || isCeoSecretary || isCxoFinance) {
       fetchSummary()
     }
-  }, [filters, isCeo, isCeoSecretary])
+  }, [filters, isCeo, isCeoSecretary, isCxoFinance])
 
   const fetchSummary = async () => {
     setLoading(true)
@@ -82,18 +83,21 @@ const PaymentReports = () => {
   const exportToCSV = () => {
     if (!summary) return
     
-    const monthName = filters.month ? months.find(m => m.value === parseInt(filters.month))?.label : 'All Months'
-    const filename = `payment_summary_${filters.year}_${monthName.replace(' ', '_')}.csv`
+    const monthName = filters.month ? months.find(m => m.value === parseInt(filters.month))?.label : t('all_months')
+    const filename = `payment_summary_${filters.year}_${monthName.replace(/\s+/g, '_')}.csv`
     
-    let csv = `Payment Summary - ${filters.year} ${monthName}\n\n`
-    csv += `Total Payments,${summary.total_count}\n\n`
-    csv += `Currency,Total Amount,Count\n`
+    // Use translations for all CSV content
+    let csv = `${t('payment_summary')} - ${filters.year} ${monthName}\n\n`
+    csv += `${t('total_payments')},${summary.total_count}\n\n`
+    csv += `${t('currency')},${t('total_amount')},${t('count')}\n`
     
     summary.totals.forEach(t => {
       csv += `${t.currency},${t.total_amount},${t.count}\n`
     })
     
-    const blob = new Blob([csv], { type: 'text/csv' })
+    // Add UTF-8 BOM to properly display Amharic characters
+    const BOM = '\uFEFF'
+    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -102,7 +106,43 @@ const PaymentReports = () => {
     window.URL.revokeObjectURL(url)
   }
 
-  if (!isCeo && !isCeoSecretary) {
+  const exportToXLSX = () => {
+    if (!summary) return
+    
+    const monthName = filters.month ? months.find(m => m.value === parseInt(filters.month))?.label : t('all_months')
+    const filename = `payment_summary_${filters.year}_${monthName.replace(/\s+/g, '_')}.xlsx`
+    
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new()
+    
+    // Prepare data for Excel
+    const data = [
+      [`${t('payment_summary')} - ${filters.year} ${monthName}`],
+      [],
+      [t('total_payments'), summary.total_count],
+      [],
+      [t('currency'), t('total_amount'), t('count')],
+      ...summary.totals.map(t => [t.currency, t.total_amount, t.count])
+    ]
+    
+    // Create worksheet from data
+    const ws = XLSX.utils.aoa_to_sheet(data)
+    
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 10 }
+    ]
+    
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, t('payment_summary'))
+    
+    // Write file
+    XLSX.writeFile(wb, filename)
+  }
+
+  if (!isCeo && !isCeoSecretary && !isCxoFinance) {
     return (
       <div className="p-8 text-center">
         <p className="text-slate-600 dark:text-slate-400">You do not have permission to view payment reports.</p>
@@ -126,13 +166,22 @@ const PaymentReports = () => {
           </div>
         </div>
         {summary && (
-          <button
-            onClick={exportToCSV}
-            className="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            {t('export_csv')}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={exportToXLSX}
+              className="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              {t('export_excel')}
+            </button>
+            <button
+              onClick={exportToCSV}
+              className="px-4 py-2.5 bg-slate-600 hover:bg-slate-700 text-white rounded-lg flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              {t('export_csv')}
+            </button>
+          </div>
         )}
       </div>
 
@@ -248,7 +297,7 @@ const PaymentReports = () => {
               <div className="space-y-2">
                 {summary.by_status?.map((s, idx) => (
                   <div key={idx} className="flex justify-between items-center text-sm">
-                    <span className="text-slate-600 dark:text-slate-300">{s.status}</span>
+                    <span className="text-slate-600 dark:text-slate-300">{s.status_display || s.status}</span>
                     <span className="font-bold text-slate-900 dark:text-white">{s.count}</span>
                   </div>
                 ))}
@@ -261,7 +310,7 @@ const PaymentReports = () => {
               <div className="space-y-2">
                 {summary.by_type?.map((t, idx) => (
                   <div key={idx} className="flex justify-between items-center text-sm">
-                    <span className="text-slate-600 dark:text-slate-300">{t.payment_type}</span>
+                    <span className="text-slate-600 dark:text-slate-300">{t.payment_type_display || t.payment_type}</span>
                     <span className="font-bold text-slate-900 dark:text-white">{t.count}</span>
                   </div>
                 ))}

@@ -4,11 +4,12 @@ from apps.core.models import Department
 
 User = get_user_model()
 
-# Payment status choices (simplified workflow)
+# Payment status choices (four-status workflow)
 PAYMENT_STATUSES = [
-    ('ARRIVED', 'Arrived'),           # Letter arrived at CEO office
-    ('REGISTERED', 'Registered'),     # Secretary registered (ref/date assigned)
-    ('PROCESSED', 'Processed'),       # Fully processed/paid
+    ('ARRIVED', 'Arrived'),                       # Letter arrived at CEO office (CEO Secretary)
+    ('PENDING_PAYMENT', 'Pending Payment'),       # Registered and pending (CEO Secretary)
+    ('TRANSFERRED_TO_BANK', 'Transferred to Bank'), # Transferred by CxO Finance
+    ('PAYMENT_COMPLETE', 'Payment Complete'),     # Payment completed by CxO Finance
 ]
 
 # Payment type choices
@@ -61,6 +62,14 @@ class Payment(models.Model):
     status = models.CharField(max_length=20, choices=PAYMENT_STATUSES, default='ARRIVED')
     priority = models.CharField(max_length=10, choices=PAYMENT_PRIORITY, default='NORMAL')
     
+    # Status change tracking
+    pending_payment_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='pending_payments')
+    pending_payment_date = models.DateTimeField(null=True, blank=True)
+    transferred_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferred_payments')
+    transferred_date = models.DateTimeField(null=True, blank=True)
+    completed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='completed_payments')
+    completed_date = models.DateTimeField(null=True, blank=True)
+    
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -78,6 +87,28 @@ class Payment(models.Model):
     @property
     def is_registered(self):
         return self.ref_no is not None and self.status != 'ARRIVED'
+    
+    @property
+    def status_changed_by(self):
+        """Return the user who last changed the status"""
+        if self.status == 'PAYMENT_COMPLETE':
+            return self.completed_by
+        elif self.status == 'TRANSFERRED_TO_BANK':
+            return self.transferred_by
+        elif self.status == 'PENDING_PAYMENT':
+            return self.pending_payment_by
+        return self.registered_by
+    
+    @property
+    def status_changed_date(self):
+        """Return the date when status was last changed"""
+        if self.status == 'PAYMENT_COMPLETE':
+            return self.completed_date
+        elif self.status == 'TRANSFERRED_TO_BANK':
+            return self.transferred_date
+        elif self.status == 'PENDING_PAYMENT':
+            return self.pending_payment_date
+        return self.registration_date
 
 
 class PaymentHistory(models.Model):

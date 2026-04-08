@@ -83,3 +83,18 @@ class IsCEOOrCEOSecretaryOrCxOSecretary(permissions.BasePermission):
             hasattr(request.user, 'profile') and 
             request.user.profile.role in ['CEO', 'CEO_SECRETARY', 'CXO_SECRETARY', 'SUPER_ADMIN']
         )
+
+
+class IsCxOFinance(permissions.BasePermission):
+    """Only allows access to CxO users in Finance department"""
+    
+    def has_permission(self, request, view):
+        return (
+            request.user and 
+            request.user.is_authenticated and 
+            hasattr(request.user, 'profile') and 
+            request.user.profile.role == 'CXO' and
+            hasattr(request.user.profile, 'department') and
+            request.user.profile.department and
+            request.user.profile.department.code == 'Finance'
+        )

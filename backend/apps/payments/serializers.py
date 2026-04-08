@@ -9,9 +9,14 @@ User = get_user_model()
 class PaymentSerializer(serializers.ModelSerializer):
     """Base payment serializer"""
     registered_by_name = serializers.SerializerMethodField()
+    pending_payment_by_name = serializers.SerializerMethodField()
+    transferred_by_name = serializers.SerializerMethodField()
+    completed_by_name = serializers.SerializerMethodField()
+    status_changed_by_name = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     payment_type_display = serializers.CharField(source='get_payment_type_display', read_only=True)
     priority_display = serializers.CharField(source='get_priority_display', read_only=True)
+    status_changed_date = serializers.DateTimeField(read_only=True)
     
     class Meta:
         model = Payment
@@ -19,9 +24,15 @@ class PaymentSerializer(serializers.ModelSerializer):
             'id', 'temp_ref_no', 'ref_no', 'tt_number', 'arrival_date', 'registration_date', 'registered_by', 'registered_by_name',
             'amount', 'currency', 'payment_type', 'payment_type_display', 'vendor_name', 'invoice_number', 
             'description', 'payment_date', 'due_date', 'status', 'status_display', 'priority', 'priority_display',
+            'pending_payment_by', 'pending_payment_by_name', 'pending_payment_date',
+            'transferred_by', 'transferred_by_name', 'transferred_date',
+            'completed_by', 'completed_by_name', 'completed_date',
+            'status_changed_by_name', 'status_changed_date',
             'created_at', 'updated_at', 'is_registered'
         ]
-        read_only_fields = ['registration_date', 'registered_by', 'created_at', 'updated_at']
+        read_only_fields = ['registration_date', 'registered_by', 'created_at', 'updated_at',
+                           'pending_payment_by', 'pending_payment_date', 'transferred_by', 'transferred_date',
+                           'completed_by', 'completed_date']
         extra_kwargs = {
             'ref_no': {'required': False, 'allow_null': True, 'allow_blank': True},
             'temp_ref_no': {'required': False, 'allow_null': True, 'allow_blank': True},
@@ -38,6 +49,27 @@ class PaymentSerializer(serializers.ModelSerializer):
     def get_registered_by_name(self, obj):
         if obj.registered_by:
             return f"{obj.registered_by.first_name} {obj.registered_by.last_name}".strip() or obj.registered_by.username
+        return None
+    
+    def get_pending_payment_by_name(self, obj):
+        if obj.pending_payment_by:
+            return f"{obj.pending_payment_by.first_name} {obj.pending_payment_by.last_name}".strip() or obj.pending_payment_by.username
+        return None
+    
+    def get_transferred_by_name(self, obj):
+        if obj.transferred_by:
+            return f"{obj.transferred_by.first_name} {obj.transferred_by.last_name}".strip() or obj.transferred_by.username
+        return None
+    
+    def get_completed_by_name(self, obj):
+        if obj.completed_by:
+            return f"{obj.completed_by.first_name} {obj.completed_by.last_name}".strip() or obj.completed_by.username
+        return None
+    
+    def get_status_changed_by_name(self, obj):
+        user = obj.status_changed_by
+        if user:
+            return f"{user.first_name} {user.last_name}".strip() or user.username
         return None
 
 
@@ -57,16 +89,21 @@ class PaymentCreateSerializer(PaymentSerializer):
             if field in validated_data and validated_data[field] == '':
                 validated_data[field] = None
                 
-        validated_data['status'] = 'REGISTERED' if validated_data.get('ref_no') else 'ARRIVED'
+        validated_data['status'] = 'PENDING_PAYMENT' if validated_data.get('ref_no') else 'ARRIVED'
+        
+        # If creating with ref_no, set pending_payment tracking
+        if validated_data.get('ref_no'):
+            validated_data['pending_payment_by'] = user
+            validated_data['pending_payment_date'] = timezone.now()
         
         payment = super().create(validated_data)
         
         # Create history record
         PaymentHistory.objects.create(
             payment=payment,
-            action='REGISTERED' if payment.is_registered else 'ARRIVED',
+            action='PENDING_PAYMENT' if payment.is_registered else 'ARRIVED',
             new_status=payment.status,
-            notes=f"Payment {'registered' if payment.is_registered else 'recorded as arrived'}",
+            notes=f"Payment {'marked as pending' if payment.is_registered else 'recorded as arrived'}",
             performed_by=user
         )
         
@@ -92,9 +129,11 @@ class PaymentUpdateSerializer(PaymentSerializer):
             if field in validated_data and validated_data[field] == '':
                 validated_data[field] = None
                 
-        # If official ref_no is being added for the first time, mark as REGISTERED
+        # If official ref_no is being added for the first time, mark as PENDING_PAYMENT
         if not instance.ref_no and validated_data.get('ref_no'):
-            validated_data['status'] = 'REGISTERED'
+            validated_data['status'] = 'PENDING_PAYMENT'
+            validated_data['pending_payment_by'] = user
+            validated_data['pending_payment_date'] = timezone.now()
         
         instance = super().update(instance, validated_data)
         

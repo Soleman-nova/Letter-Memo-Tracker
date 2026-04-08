@@ -47,30 +47,40 @@ export default function Dashboard() {
           .slice(0, 6)
         setRecent(rec)
         
-        // Calculate payment stats - only count REGISTERED payments (with Official Ref)
+        // Calculate payment stats
         if (paymentsRes) {
           const payments = paymentsRes.data.results || paymentsRes.data || []
-          const registeredPayments = payments.filter(p => p.status === 'REGISTERED' || p.status === 'PROCESSED')
+          const registeredPayments = payments.filter(p => p.status === 'PENDING_PAYMENT' || p.status === 'TRANSFERRED_TO_BANK' || p.status === 'PAYMENT_COMPLETE')
           const oneWeekAgo = new Date()
           oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
           const oneMonthAgo = new Date()
           oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
           
-          // Calculate total amounts by currency for this month
-          const thisMonthPayments = registeredPayments.filter(p => new Date(p.registration_date) >= oneMonthAgo)
-          const amountsByCurrency = thisMonthPayments.reduce((acc, payment) => {
-            const currency = payment.currency || 'ETB'
-            const amount = parseFloat(payment.amount) || 0
-            acc[currency] = (acc[currency] || 0) + amount
-            return acc
-          }, { ETB: 0, USD: 0, EUR: 0 })
-          
-          setPaymentStats({
-            total: registeredPayments.length,
-            totalAmountMonth: amountsByCurrency,
-            thisMonth: thisMonthPayments.length,
-            thisWeek: registeredPayments.filter(p => new Date(p.registration_date) >= oneWeekAgo).length,
-          })
+          if (isCeo) {
+            // CEO sees: Total, Total Amount (Month), This Month count, This Week
+            const thisMonthPayments = registeredPayments.filter(p => new Date(p.registration_date) >= oneMonthAgo)
+            const amountsByCurrency = thisMonthPayments.reduce((acc, payment) => {
+              const currency = payment.currency || 'ETB'
+              const amount = parseFloat(payment.amount) || 0
+              acc[currency] = (acc[currency] || 0) + amount
+              return acc
+            }, { ETB: 0, USD: 0, EUR: 0 })
+            
+            setPaymentStats({
+              total: registeredPayments.length,
+              totalAmountMonth: amountsByCurrency,
+              thisMonth: thisMonthPayments.length,
+              thisWeek: registeredPayments.filter(p => new Date(p.registration_date) >= oneWeekAgo).length,
+            })
+          } else if (isCeoSecretary) {
+            // CEO Secretary sees: Total, Arrived, Pending Payment, This Week
+            setPaymentStats({
+              total: registeredPayments.length,
+              arrived: payments.filter(p => p.status === 'ARRIVED').length,
+              registered: payments.filter(p => p.status === 'PENDING_PAYMENT').length,
+              thisWeek: registeredPayments.filter(p => new Date(p.registration_date) >= oneWeekAgo).length,
+            })
+          }
         }
       } finally {
         setLoading(false)
@@ -149,32 +159,51 @@ export default function Dashboard() {
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('total_payments')}</div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '…' : paymentStats.total}</div>
             </div>
-            <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('total_amount_month')}</div>
-              {loading ? (
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">…</div>
-              ) : (
-                <div className="space-y-1">
-                  {Object.entries(paymentStats.totalAmountMonth).map(([currency, amount]) => (
-                    amount > 0 && (
-                      <div key={currency} className="flex items-baseline gap-1">
-                        <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                          {amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{currency}</span>
-                      </div>
-                    )
-                  ))}
-                  {Object.values(paymentStats.totalAmountMonth).every(v => v === 0) && (
-                    <div className="text-lg font-bold text-slate-400 dark:text-slate-500">0.00 ETB</div>
+            
+            {isCeo ? (
+              <>
+                {/* CEO sees: Total Amount (Month) and This Month count */}
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('total_amount_month')}</div>
+                  {loading ? (
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">…</div>
+                  ) : (
+                    <div className="space-y-1">
+                      {Object.entries(paymentStats.totalAmountMonth || {}).map(([currency, amount]) => (
+                        amount > 0 && (
+                          <div key={currency} className="flex items-baseline gap-1">
+                            <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                              {amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{currency}</span>
+                          </div>
+                        )
+                      ))}
+                      {Object.values(paymentStats.totalAmountMonth || {}).every(v => v === 0) && (
+                        <div className="text-lg font-bold text-slate-400 dark:text-slate-500">0.00 ETB</div>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-            <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('this_month')}</div>
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{loading ? '…' : paymentStats.thisMonth}</div>
-            </div>
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('this_month')}</div>
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">{loading ? '…' : paymentStats.thisMonth}</div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* CEO Secretary sees: Arrived and Registered */}
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('arrived_payments')}</div>
+                  <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{loading ? '…' : paymentStats.arrived}</div>
+                </div>
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('registered_payments')}</div>
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">{loading ? '…' : paymentStats.registered}</div>
+                </div>
+              </>
+            )}
+            
             <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('this_week')}</div>
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{loading ? '…' : paymentStats.thisWeek}</div>

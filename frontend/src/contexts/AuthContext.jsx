@@ -98,6 +98,7 @@ export function AuthProvider({ children }) {
     isCxoSecretary: userRole === 'CXO_SECRETARY',
     isCeo: userRole === 'CEO',
     isCxo: userRole === 'CXO',
+    isCxoFinance: userRole === 'CXO' && userDepartment?.code === 'Finance',
   }
 
   return (

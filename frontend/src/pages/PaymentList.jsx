@@ -9,7 +9,7 @@ import EthDateDisplay from '../components/EthDateDisplay'
 
 const PaymentList = () => {
   const { t } = useTranslation()
-  const { user, isCeoSecretary, isCeo } = useAuth()
+  const { user, isCeoSecretary, isCeo, isCxoFinance } = useAuth()
   const toast = useToast()
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -45,6 +45,9 @@ const PaymentList = () => {
     due_date: '',
     priority: 'NORMAL'
   })
+  const [confirmDialog, setConfirmDialog] = useState({ show: false, type: null, payment: null })
+  const [historyModal, setHistoryModal] = useState({ show: false, payment: null, history: [] })
+  const [loadingHistory, setLoadingHistory] = useState(false)
 
   // Load saved filters from localStorage on mount
   useEffect(() => {
@@ -343,8 +346,9 @@ const PaymentList = () => {
 
   const statusColors = {
     'ARRIVED': 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400',
-    'REGISTERED': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400',
-    'PROCESSED': 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
+    'PENDING_PAYMENT': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400',
+    'TRANSFERRED_TO_BANK': 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400',
+    'PAYMENT_COMPLETE': 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
   }
 
   const priorityColors = {
@@ -357,15 +361,59 @@ const PaymentList = () => {
   const getStatusDate = (payment) => {
     if (!payment) return null
     if (payment.status === 'ARRIVED') {
-      return payment.arrival_date || payment.registration_date || payment.payment_date
+      return payment.arrival_date || payment.registration_date
     }
-    if (payment.status === 'REGISTERED') {
-      return payment.registration_date || payment.arrival_date || payment.payment_date
+    if (payment.status === 'PENDING_PAYMENT') {
+      return payment.pending_payment_date || payment.registration_date
     }
-    if (payment.status === 'PROCESSED') {
-      return payment.payment_date || payment.registration_date || payment.arrival_date
+    if (payment.status === 'TRANSFERRED_TO_BANK') {
+      return payment.transferred_date
     }
-    return payment.registration_date || payment.payment_date || payment.arrival_date
+    if (payment.status === 'PAYMENT_COMPLETE') {
+      return payment.completed_date
+    }
+    return payment.status_changed_date || payment.registration_date
+  }
+
+  const handleStatusChange = async (paymentId, action) => {
+    try {
+      await api.post(`/api/payments/payments/${paymentId}/${action}/`)
+      toast.success(t('payment_updated'))
+      fetchPayments()
+      setConfirmDialog({ show: false, type: null, payment: null })
+    } catch (error) {
+      console.error('Error updating payment status:', error)
+      toast.error(error.response?.data?.error || 'Failed to update payment status')
+    }
+  }
+
+  const openConfirmDialog = (type, payment) => {
+    setConfirmDialog({ show: true, type, payment })
+  }
+
+  const handleConfirm = () => {
+    if (confirmDialog.payment && confirmDialog.type) {
+      handleStatusChange(confirmDialog.payment.id, confirmDialog.type)
+    }
+  }
+
+  const fetchPaymentHistory = async (paymentId) => {
+    setLoadingHistory(true)
+    try {
+      const response = await api.get(`/api/payments/payments/${paymentId}/history/`)
+      return response.data
+    } catch (error) {
+      console.error('Error fetching payment history:', error)
+      toast.error('Failed to load payment history')
+      return []
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
+  const openHistoryModal = async (payment) => {
+    const history = await fetchPaymentHistory(payment.id)
+    setHistoryModal({ show: true, payment, history })
   }
 
   const startItem = pagination.totalCount === 0
@@ -433,8 +481,9 @@ const PaymentList = () => {
             >
               <option value="">{t('all_statuses')}</option>
               <option value="ARRIVED">{t('arrived')}</option>
-              <option value="REGISTERED">{t('registered')}</option>
-              <option value="PROCESSED">{t('processed')}</option>
+              <option value="PENDING_PAYMENT">{t('pending_payment')}</option>
+              <option value="TRANSFERRED_TO_BANK">{t('transferred_to_bank')}</option>
+              <option value="PAYMENT_COMPLETE">{t('payment_complete')}</option>
             </select>
           </div>
           <div>
@@ -572,7 +621,10 @@ const PaymentList = () => {
                   <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('type')}</th>
                   <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('status')}</th>
                   <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('status_date')}</th>
-                  {isCeoSecretary && <th className="text-right p-4 font-medium text-slate-900 dark:text-slate-100">{t('actions')}</th>}
+                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('changed_by')}</th>
+                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('change_date')}</th>
+                  <th className="text-center p-4 font-medium text-slate-900 dark:text-slate-100">{t('history')}</th>
+                  {(isCeoSecretary || isCxoFinance) && <th className="text-right p-4 font-medium text-slate-900 dark:text-slate-100">{t('actions')}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -618,14 +670,65 @@ const PaymentList = () => {
                         <span className="text-xs text-slate-400 dark:text-slate-500">-</span>
                       )}
                     </td>
-                    {isCeoSecretary && (
+                    <td className="p-4">
+                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                        {payment.status_changed_by_name || '-'}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      {payment.status_changed_date ? (
+                        <EthDateDisplay
+                          date={payment.status_changed_date}
+                          className="text-sm text-slate-700 dark:text-slate-100"
+                        />
+                      ) : (
+                        <span className="text-xs text-slate-400 dark:text-slate-500">-</span>
+                      )}
+                    </td>
+                    <td className="p-4 text-center">
+                      <button
+                        onClick={() => openHistoryModal(payment)}
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium text-sm"
+                      >
+                        {t('view_history')}
+                      </button>
+                    </td>
+                    {(isCeoSecretary || isCxoFinance) && (
                       <td className="p-4 text-right">
-                        <button
-                          onClick={() => handleEdit(payment)}
-                          className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium text-sm"
-                        >
-                          {t('edit')}
-                        </button>
+                        <div className="flex gap-2 justify-end">
+                          {isCeoSecretary && payment.status === 'ARRIVED' && (
+                            <button
+                              onClick={() => handleStatusChange(payment.id, 'mark_pending_payment')}
+                              className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs font-medium"
+                            >
+                              {t('mark_pending_payment')}
+                            </button>
+                          )}
+                          {isCeoSecretary && (
+                            <button
+                              onClick={() => handleEdit(payment)}
+                              className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium text-sm"
+                            >
+                              {t('edit')}
+                            </button>
+                          )}
+                          {isCxoFinance && payment.status === 'PENDING_PAYMENT' && (
+                            <button
+                              onClick={() => openConfirmDialog('mark_transferred', payment)}
+                              className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-medium"
+                            >
+                              {t('transfer_to_bank')}
+                            </button>
+                          )}
+                          {isCxoFinance && payment.status === 'TRANSFERRED_TO_BANK' && (
+                            <button
+                              onClick={() => openConfirmDialog('mark_completed', payment)}
+                              className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium"
+                            >
+                              {t('mark_complete')}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -934,6 +1037,106 @@ const PaymentList = () => {
                   {editingPayment ? t('update_payment') : t('register_payment')}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Dialog */}
+      {confirmDialog.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4 dark:text-white">
+              {confirmDialog.type === 'mark_transferred' ? t('transfer_to_bank') : t('mark_complete')}
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">
+              {confirmDialog.type === 'mark_transferred' ? t('confirm_transfer') : t('confirm_complete')}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConfirmDialog({ show: false, type: null, payment: null })}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                onClick={handleConfirm}
+                className={`px-4 py-2 rounded-lg text-white ${
+                  confirmDialog.type === 'mark_transferred' 
+                    ? 'bg-purple-600 hover:bg-purple-700' 
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
+              >
+                {t('confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment History Modal */}
+      {historyModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl p-6 max-w-3xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold dark:text-white">
+                {t('payment_history')} - {historyModal.payment?.ref_no || historyModal.payment?.temp_ref_no}
+              </h3>
+              <button
+                onClick={() => setHistoryModal({ show: false, payment: null, history: [] })}
+                className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {loadingHistory ? (
+              <div className="text-center py-8">
+                <div className="text-slate-500 dark:text-slate-400">{t('loading')}...</div>
+              </div>
+            ) : historyModal.history.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-slate-500 dark:text-slate-400">{t('no_history')}</div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {historyModal.history.map((entry, index) => (
+                  <div key={entry.id} className="border-l-4 border-blue-500 pl-4 py-2 bg-slate-50 dark:bg-slate-700/50 rounded-r">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <span className="font-semibold text-slate-900 dark:text-white">{entry.action}</span>
+                        {entry.old_status && entry.new_status && (
+                          <span className="text-sm text-slate-600 dark:text-slate-400 ml-2">
+                            ({entry.old_status} → {entry.new_status})
+                          </span>
+                        )}
+                      </div>
+                      <EthDateDisplay
+                        date={entry.timestamp}
+                        includeTime={true}
+                        className="text-sm text-slate-600 dark:text-slate-400"
+                      />
+                    </div>
+                    <div className="text-sm text-slate-700 dark:text-slate-300">
+                      {t('performed_by')}: {entry.performed_by_name || 'System'}
+                    </div>
+                    {entry.notes && (
+                      <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                        {entry.notes}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setHistoryModal({ show: false, payment: null, history: [] })}
+                className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg"
+              >
+                {t('close')}
+              </button>
             </div>
           </div>
         </div>
