@@ -13,15 +13,15 @@ class PaymentSerializer(serializers.ModelSerializer):
     transferred_by_name = serializers.SerializerMethodField()
     completed_by_name = serializers.SerializerMethodField()
     status_changed_by_name = serializers.SerializerMethodField()
+    status_changed_date = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     payment_type_display = serializers.CharField(source='get_payment_type_display', read_only=True)
     priority_display = serializers.CharField(source='get_priority_display', read_only=True)
-    status_changed_date = serializers.DateTimeField(read_only=True)
     
     class Meta:
         model = Payment
         fields = [
-            'id', 'temp_ref_no', 'ref_no', 'tt_number', 'arrival_date', 'registration_date', 'registered_by', 'registered_by_name',
+            'id', 'temp_ref_no', 'ref_no', 'registry_date', 'tt_number', 'arrival_date', 'registration_date', 'registered_by', 'registered_by_name',
             'amount', 'currency', 'payment_type', 'payment_type_display', 'vendor_name', 'invoice_number', 
             'description', 'payment_date', 'due_date', 'status', 'status_display', 'priority', 'priority_display',
             'pending_payment_by', 'pending_payment_by_name', 'pending_payment_date',
@@ -35,6 +35,7 @@ class PaymentSerializer(serializers.ModelSerializer):
                            'completed_by', 'completed_date']
         extra_kwargs = {
             'ref_no': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'registry_date': {'required': False, 'allow_null': True},
             'temp_ref_no': {'required': False, 'allow_null': True, 'allow_blank': True},
             'tt_number': {'required': False, 'allow_null': True, 'allow_blank': True},
             'arrival_date': {'required': False, 'allow_null': True},
@@ -69,8 +70,21 @@ class PaymentSerializer(serializers.ModelSerializer):
     def get_status_changed_by_name(self, obj):
         user = obj.status_changed_by
         if user:
+            # Don't show CEO in changed_by since CEO cannot edit/change payments
+            if hasattr(user, 'profile') and user.profile.role == 'CEO':
+                return None
             return f"{user.first_name} {user.last_name}".strip() or user.username
         return None
+    
+    def get_status_changed_date(self, obj):
+        """Return the date when status was last changed, handling both DateField and DateTimeField"""
+        date_value = obj.status_changed_date
+        if date_value is None:
+            return None
+        # Convert date to ISO format string to avoid timezone issues
+        if hasattr(date_value, 'isoformat'):
+            return date_value.isoformat()
+        return str(date_value)
 
 
 class PaymentCreateSerializer(PaymentSerializer):
@@ -115,7 +129,7 @@ class PaymentUpdateSerializer(PaymentSerializer):
     
     class Meta(PaymentSerializer.Meta):
         fields = [
-            'temp_ref_no', 'ref_no', 'tt_number', 'arrival_date', 'amount', 'currency', 'payment_type',
+            'temp_ref_no', 'ref_no', 'registry_date', 'tt_number', 'arrival_date', 'amount', 'currency', 'payment_type',
             'vendor_name', 'invoice_number', 'description', 'payment_date', 'due_date', 'priority'
         ]
         read_only_fields = []
@@ -125,7 +139,7 @@ class PaymentUpdateSerializer(PaymentSerializer):
         old_status = instance.status
         
         # Convert empty strings to None for optional fields
-        for field in ['amount', 'arrival_date', 'payment_date', 'due_date']:
+        for field in ['amount', 'arrival_date', 'payment_date', 'due_date', 'registry_date']:
             if field in validated_data and validated_data[field] == '':
                 validated_data[field] = None
                 
@@ -197,5 +211,8 @@ class PaymentHistorySerializer(serializers.ModelSerializer):
     
     def get_performed_by_name(self, obj):
         if obj.performed_by:
+            # Don't show CEO in history since CEO cannot edit/change payments
+            if hasattr(obj.performed_by, 'profile') and obj.performed_by.profile.role == 'CEO':
+                return None
             return f"{obj.performed_by.first_name} {obj.performed_by.last_name}".strip() or obj.performed_by.username
         return None

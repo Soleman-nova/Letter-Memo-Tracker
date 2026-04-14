@@ -33,12 +33,17 @@ export default function Dashboard() {
         const results = await Promise.all(promises)
         const [allRes, inRes, outRes, memoRes, paymentsRes] = results
         
-        const all = allRes.data || []
+        // Handle paginated responses - extract results array
+        const all = allRes.data.results || allRes.data || []
+        const incoming = inRes.data.results || inRes.data || []
+        const outgoing = outRes.data.results || outRes.data || []
+        const memo = memoRes.data.results || memoRes.data || []
+        
         setStats({
           total: all.length,
-          incoming: (inRes.data || []).length,
-          outgoing: (outRes.data || []).length,
-          memo: (memoRes.data || []).length,
+          incoming: incoming.length,
+          outgoing: outgoing.length,
+          memo: memo.length,
           pending: all.filter(d => ['REGISTERED','DIRECTED','DISPATCHED'].includes(d.status)).length,
           received: all.filter(d => d.status === 'RECEIVED').length,
         })

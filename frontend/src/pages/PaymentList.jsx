@@ -33,6 +33,7 @@ const PaymentList = () => {
   const [registrationForm, setRegistrationForm] = useState({
     temp_ref_no: '',
     ref_no: '',
+    registry_date: '',
     tt_number: '',
     arrival_date: '',
     amount: '',
@@ -98,7 +99,7 @@ const PaymentList = () => {
     setVendorNames(uniqueVendors)
   }, [payments])
 
-  const fetchPayments = async (page = pagination.currentPage) => {
+  const fetchPayments = async (page = pagination.currentPage, pageSize = pagination.pageSize) => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -113,7 +114,7 @@ const PaymentList = () => {
       
       // Add pagination params
       params.append('page', page)
-      params.append('page_size', pagination.pageSize)
+      params.append('page_size', pageSize)
       
       const response = await api.get(`/api/payments/payments/?${params.toString()}`)
       
@@ -123,7 +124,8 @@ const PaymentList = () => {
         setPagination(prev => ({
           ...prev,
           currentPage: page,
-          totalPages: Math.ceil(response.data.count / prev.pageSize),
+          pageSize: pageSize,
+          totalPages: Math.ceil(response.data.count / pageSize),
           totalCount: response.data.count
         }))
       } else {
@@ -149,6 +151,7 @@ const PaymentList = () => {
     setRegistrationForm({
       temp_ref_no: '',
       ref_no: '',
+      registry_date: '',
       tt_number: '',
       arrival_date: '',
       amount: '',
@@ -167,10 +170,24 @@ const PaymentList = () => {
 
   const handleRegistration = async () => {
     try {
+      // Validate vendor_name is required for new payments
+      if (!editingPayment && (!registrationForm.vendor_name || !registrationForm.vendor_name.trim())) {
+        toast.error('Vendor Name is required')
+        return
+      }
+      
+      // Validate Registry Date is required when editing ARRIVED payment
+      if (editingPayment && editingPayment.status === 'ARRIVED') {
+        if (!registrationForm.registry_date) {
+          toast.error('Registry Date is required to update payment details')
+          return
+        }
+      }
+      
       const payload = { ...registrationForm };
       
       // Convert empty strings to null for optional fields
-      ['amount', 'arrival_date', 'payment_date', 'due_date', 'ref_no', 'temp_ref_no', 'tt_number', 'invoice_number', 'vendor_name', 'description'].forEach(field => {
+      ['amount', 'arrival_date', 'payment_date', 'due_date', 'registry_date', 'ref_no', 'temp_ref_no', 'tt_number', 'invoice_number', 'vendor_name', 'description'].forEach(field => {
         if (payload[field] === '') {
           payload[field] = null;
         }
@@ -261,8 +278,7 @@ const PaymentList = () => {
   }
 
   const handlePageSizeChange = (newPageSize) => {
-    setPagination(prev => ({ ...prev, pageSize: newPageSize, currentPage: 1 }))
-    fetchPayments(1)
+    fetchPayments(1, newPageSize)
   }
 
   const handleVendorNameChange = (value) => {
@@ -329,6 +345,7 @@ const PaymentList = () => {
     setRegistrationForm({
       temp_ref_no: payment.temp_ref_no || '',
       ref_no: payment.ref_no || '',
+      registry_date: payment.registry_date || '',
       tt_number: payment.tt_number || '',
       arrival_date: payment.arrival_date || '',
       amount: payment.amount || '',
@@ -364,7 +381,7 @@ const PaymentList = () => {
       return payment.arrival_date || payment.registration_date
     }
     if (payment.status === 'PENDING_PAYMENT') {
-      return payment.pending_payment_date || payment.registration_date
+      return payment.registry_date || payment.pending_payment_date || payment.registration_date
     }
     if (payment.status === 'TRANSFERRED_TO_BANK') {
       return payment.transferred_date
@@ -375,7 +392,19 @@ const PaymentList = () => {
     return payment.status_changed_date || payment.registration_date
   }
 
-  const handleStatusChange = async (paymentId, action) => {
+  const handleStatusChange = async (paymentId, action, payment = null) => {
+    // Validate registry number and date before marking as pending payment
+    if (action === 'mark_pending_payment' && payment) {
+      if (!payment.ref_no || !payment.ref_no.trim()) {
+        toast.error('Registry Number is required before marking as pending payment')
+        return
+      }
+      if (!payment.registry_date) {
+        toast.error('Registry Date is required before marking as pending payment')
+        return
+      }
+    }
+    
     try {
       await api.post(`/api/payments/payments/${paymentId}/${action}/`)
       toast.success(t('payment_updated'))
@@ -450,27 +479,8 @@ const PaymentList = () => {
         )}
       </div>
 
-      {/* Search and Filters */}
+      {/* Filters */}
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow p-4 space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder={t('search_payments')}
-            className="w-full pl-10 pr-10 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              aria-label="Clear search"
-            >
-              ✕
-            </button>
-          )}
-        </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1 dark:text-white">{t('status')}</label>
@@ -602,6 +612,29 @@ const PaymentList = () => {
 
       {/* Payments List */}
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow">
+        {/* Search Bar - Top Right */}
+        <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{t('payments_table')}</h3>
+          <div className="relative w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder={t('search_payments')}
+              className="w-full pl-10 pr-10 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
         {loading ? (
           <div className="text-center py-8">
             <div className="text-slate-500 dark:text-slate-400">{t('loading')}...</div>
@@ -620,7 +653,7 @@ const PaymentList = () => {
                   <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('amount')}</th>
                   <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('type')}</th>
                   <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('status')}</th>
-                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('status_date')}</th>
+                  <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('registry_date')}</th>
                   <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('changed_by')}</th>
                   <th className="text-left p-4 font-medium text-slate-900 dark:text-slate-100">{t('change_date')}</th>
                   <th className="text-center p-4 font-medium text-slate-900 dark:text-slate-100">{t('history')}</th>
@@ -698,13 +731,13 @@ const PaymentList = () => {
                         <div className="flex gap-2 justify-end">
                           {isCeoSecretary && payment.status === 'ARRIVED' && (
                             <button
-                              onClick={() => handleStatusChange(payment.id, 'mark_pending_payment')}
+                              onClick={() => handleStatusChange(payment.id, 'mark_pending_payment', payment)}
                               className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs font-medium"
                             >
                               {t('mark_pending_payment')}
                             </button>
                           )}
-                          {isCeoSecretary && (
+                          {isCeoSecretary && payment.status !== 'PAYMENT_COMPLETE' && (
                             <button
                               onClick={() => handleEdit(payment)}
                               className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium text-sm"
@@ -871,6 +904,17 @@ const PaymentList = () => {
                 </div>
                 
                 <div>
+                  <EthiopianDateInput
+                    label={t('registry_date')}
+                    value={registrationForm.registry_date}
+                    onChange={(value) => setRegistrationForm(prev => ({ ...prev, registry_date: value }))}
+                    placeholder={t('ph_registry_date')}
+                    disabled={editingPayment?.registry_date ? true : false}
+                    required={editingPayment && editingPayment.status === 'ARRIVED' ? true : false}
+                  />
+                </div>
+                
+                <div>
                   <label className="block text-sm font-medium mb-1 dark:text-white">{t('tt_number_optional')}</label>
                   <input
                     type="text"
@@ -929,7 +973,10 @@ const PaymentList = () => {
                 </div>
                 
                 <div className="relative">
-                  <label className="block text-sm font-medium mb-1 dark:text-white">{t('vendor_name')}</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-white">
+                    {t('vendor_name')}
+                    {!editingPayment && <span className="text-red-500 ml-1">*</span>}
+                  </label>
                   <input
                     type="text"
                     className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-700 dark:text-white"

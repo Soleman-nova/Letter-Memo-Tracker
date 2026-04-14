@@ -20,7 +20,7 @@ const PaymentReports = () => {
   
   const [filters, setFilters] = useState({
     year: currentYear,
-    month: '' // Default to "All Months" instead of current month
+    month: currentMonth // Default to current month
   })
   const [useEthiopianCalendar, setUseEthiopianCalendar] = useState(true)
   const [selectedDate, setSelectedDate] = useState(new Date())

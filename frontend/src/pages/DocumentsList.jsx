@@ -43,7 +43,9 @@ export default function DocumentsList() {
       if (dateFrom) params.date_from = dateFrom
       if (dateTo) params.date_to = dateTo
       const res = await api.get('/api/documents/documents/', { params })
-      setItems(res.data)
+      // Handle paginated response - extract results array
+      const documents = res.data.results || res.data || []
+      setItems(documents)
       setCurrentPage(1)
     } catch (err) {
       console.error('Failed to load documents:', err)
@@ -52,7 +54,11 @@ export default function DocumentsList() {
 
   useEffect(() => {
     // Fetch departments from backend
-    api.get('/api/core/departments/').then(r => setDepartments(r.data))
+    api.get('/api/core/departments/').then(r => {
+      // Handle paginated response - extract results array
+      const depts = r.data.results || r.data || []
+      setDepartments(depts)
+    })
   }, [])
 
   // Auto-reload when filters change
@@ -153,28 +159,6 @@ export default function DocumentsList() {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <div className="flex-1 min-w-[200px]">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input 
-                className="border border-slate-200 dark:border-slate-600 rounded-lg pl-9 pr-9 py-2 w-full bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20 focus:border-[#0B3C5D]" 
-                placeholder={t('search')} 
-                value={q} 
-                onChange={(e)=>setQ(e.target.value)} 
-              />
-              {q && (
-                <button
-                  type="button"
-                  onClick={() => setQ('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-500 dark:text-slate-300"
-                  aria-label={t('clear')}
-                  title={t('clear')}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </div>
           <select className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 dark:text-white text-sm" value={typeFilter} onChange={(e)=>{setTypeFilter(e.target.value)}}>
             <option value="">{t('all_types')}</option>
             <option value="INCOMING">{t('incoming')}</option>
@@ -192,8 +176,8 @@ export default function DocumentsList() {
             <option value="CLOSED">{t('closed')}</option>
           </select>
           <button className="inline-flex items-center gap-2 bg-[#0B3C5D] dark:bg-[#F0B429] text-white dark:text-[#0B3C5D] rounded-lg px-4 py-2 font-medium hover:bg-[#09324F] dark:hover:bg-[#D9A020]" onClick={load}>
-            <Search className="w-4 h-4" />
-            {t('search')}
+            <Filter className="w-4 h-4" />
+            {t('apply_filters')}
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -228,6 +212,29 @@ export default function DocumentsList() {
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden">
+        {/* Search Bar - Top Right */}
+        <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{t('documents')}</h3>
+          <div className="relative w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input 
+              className="w-full pl-10 pr-10 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none" 
+              placeholder={t('search')} 
+              value={q} 
+              onChange={(e)=>setQ(e.target.value)} 
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={() => setQ('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                aria-label={t('clear')}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left border-b dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">

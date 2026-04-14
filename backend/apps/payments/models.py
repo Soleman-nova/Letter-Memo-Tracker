@@ -43,6 +43,7 @@ class Payment(models.Model):
     # Registration details
     temp_ref_no = models.CharField(max_length=50, null=True, blank=True, help_text="Temporary reference before official number")
     ref_no = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    registry_date = models.DateField(null=True, blank=True, help_text="Date when registry number (ref_no) was issued")
     tt_number = models.CharField(max_length=50, unique=True, null=True, blank=True, help_text="Optional tracking number")
     arrival_date = models.DateField(null=True, blank=True, help_text="Date letter arrived at CEO office")
     registration_date = models.DateTimeField(auto_now_add=True)
@@ -107,7 +108,7 @@ class Payment(models.Model):
         elif self.status == 'TRANSFERRED_TO_BANK':
             return self.transferred_date
         elif self.status == 'PENDING_PAYMENT':
-            return self.pending_payment_date
+            return self.registry_date or self.pending_payment_date
         return self.registration_date
 
 

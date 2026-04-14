@@ -60,7 +60,9 @@ export default function DocumentForm() {
   useEffect(() => {
     // Fetch departments from backend to get correct IDs
     api.get('/api/core/departments/').then(r => {
-      setDepartments(r.data)
+      // Handle paginated response - extract results array
+      const depts = r.data.results || r.data || []
+      setDepartments(depts)
       setLoading(false)
     }).catch(err => {
       console.error('Failed to load departments:', err)
@@ -408,6 +410,7 @@ export default function DocumentForm() {
             <div className="font-semibold mb-3 text-blue-900 dark:text-blue-300">{t('scenario_1')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <EthiopianDateInput label={t('received_date')} value={form.received_date} onChange={(v)=>update('received_date', v)} required />
+              <EthiopianDateInput label={t('written_date')} value={form.written_date} onChange={(v)=>update('written_date', v)} />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('company_office_name')} <span className="text-red-500">*</span></label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.company_office_name} onChange={(e)=>update('company_office_name', e.target.value)} />
@@ -439,6 +442,7 @@ export default function DocumentForm() {
             <div className="font-semibold mb-3 text-green-900 dark:text-green-300">{t('scenario_2')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <EthiopianDateInput label={t('received_date')} value={form.received_date} onChange={(v)=>update('received_date', v)} required />
+              <EthiopianDateInput label={t('written_date')} value={form.written_date} onChange={(v)=>update('written_date', v)} />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('from_office_cxo')} <span className="text-red-500">*</span></label>
                 <MultiSelect options={deptOptionsExcludeCEO} value={form.from_cxo_office} onChange={(vals)=>update('from_cxo_office', vals)} placeholder={t('ph_select_originating')} />
@@ -525,6 +529,7 @@ export default function DocumentForm() {
           <div className="border border-teal-200 dark:border-teal-800 rounded-xl p-4 bg-teal-50 dark:bg-teal-900/20">
             <div className="font-semibold mb-3 text-teal-900 dark:text-teal-300">{t('scenario_5')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EthiopianDateInput label={t('received_date')} value={form.received_date} onChange={(v)=>update('received_date', v)} required />
               <EthiopianDateInput label={t('memo_date')} value={form.memo_date} onChange={(v)=>update('memo_date', v)} required />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('from_office_cxo')} <span className="text-red-500">*</span></label>
@@ -588,6 +593,7 @@ export default function DocumentForm() {
             <div className="font-semibold mb-3 text-blue-900 dark:text-blue-300">{t('scenario_7')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <EthiopianDateInput label={t('received_date')} value={form.received_date} onChange={(v)=>update('received_date', v)} required />
+              <EthiopianDateInput label={t('written_date')} value={form.written_date} onChange={(v)=>update('written_date', v)} />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('company_office_name')} <span className="text-red-500">*</span></label>
                 <input className="border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 w-full bg-white dark:bg-slate-700 dark:text-white" value={form.company_office_name} onChange={(e)=>update('company_office_name', e.target.value)} />
@@ -606,6 +612,7 @@ export default function DocumentForm() {
             <div className="font-semibold mb-3 text-green-900 dark:text-green-300">{t('scenario_8')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <EthiopianDateInput label={t('received_date')} value={form.received_date} onChange={(v)=>update('received_date', v)} required />
+              <EthiopianDateInput label={t('written_date')} value={form.written_date} onChange={(v)=>update('written_date', v)} />
               <div>
                 <label className="block text-sm font-medium mb-1 dark:text-white">{t('from_sending_cxo')}</label>
                 <MultiSelect options={deptOptionsExcludeSelfAndCEO} value={form.co_offices} onChange={(vals)=>update('co_offices', vals)} placeholder={t('ph_select_sending')} />

@@ -175,7 +175,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def monthly_summary(self, request):
         """Return monthly payment totals and counts for a given year/month.
-        Includes all payments with official ref (excludes ARRIVED status only).
+        Includes only the 4 valid statuses: ARRIVED, PENDING_PAYMENT, TRANSFERRED_TO_BANK, PAYMENT_COMPLETE.
         Accessible by CEO, CEO Secretary, and CxO Finance."""
         # Check if user has permission to view reports
         if not (IsCEO().has_permission(request, self) or 
@@ -186,10 +186,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
         year = int(request.query_params.get('year', timezone.now().year))
         month = request.query_params.get('month')
 
-        # Include both old and new statuses (exclude only ARRIVED)
-        # Old statuses: REGISTERED, PROCESSED
-        # New statuses: PENDING_PAYMENT, TRANSFERRED_TO_BANK, PAYMENT_COMPLETE
-        qs = Payment.objects.exclude(status='ARRIVED')
+        # Include only the 4 valid statuses (exclude any legacy statuses like REGISTERED)
+        valid_statuses = ['ARRIVED', 'PENDING_PAYMENT', 'TRANSFERRED_TO_BANK', 'PAYMENT_COMPLETE']
+        qs = Payment.objects.filter(status__in=valid_statuses)
         
         # Filter by year - use registration_date if available, otherwise created_at
         from django.db.models import Q

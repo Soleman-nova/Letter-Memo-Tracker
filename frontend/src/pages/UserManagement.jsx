@@ -44,8 +44,11 @@ export default function UserManagement() {
         api.get('/api/core/users/'),
         api.get('/api/core/departments/')
       ])
-      setUsers(usersRes.data)
-      setDepartments(deptsRes.data)
+      // Handle paginated responses - extract results array
+      const users = usersRes.data.results || usersRes.data || []
+      const depts = deptsRes.data.results || deptsRes.data || []
+      setUsers(users)
+      setDepartments(depts)
     } catch (err) {
       console.error('Failed to fetch data:', err)
       toast.error('Failed to load users')
