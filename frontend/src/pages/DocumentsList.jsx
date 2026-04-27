@@ -20,20 +20,25 @@ export default function DocumentsList() {
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
+  const [letterCategoryFilter, setLetterCategoryFilter] = useState('')
+  const [letterTypeFilter, setLetterTypeFilter] = useState('')
   const [coFilter, setCoFilter] = useState([])
   const [dirFilter, setDirFilter] = useState([])
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [totalCount, setTotalCount] = useState(0)
   const qDebounceRef = useRef(null)
 
-  const load = async () => {
+  const load = async (page = currentPage, size = pageSize) => {
     try {
       const params = {}
       if (q) params.q = q
       if (typeFilter) params.doc_type = typeFilter
       if (sourceFilter) params.source = sourceFilter
+      if (letterCategoryFilter) params.letter_category = letterCategoryFilter
+      if (letterTypeFilter) params.letter_type = letterTypeFilter
       if (statusFilter) params.status = statusFilter
       // Only add filters if they have valid values (not undefined/empty)
       const validCoFilter = coFilter.filter(v => v !== undefined && v !== null && v !== '')
@@ -42,11 +47,23 @@ export default function DocumentsList() {
       if (validDirFilter.length) params.directed_office = validDirFilter.join(',')
       if (dateFrom) params.date_from = dateFrom
       if (dateTo) params.date_to = dateTo
+      // Server-side pagination params
+      params.page = page
+      params.page_size = size
+
       const res = await api.get('/api/documents/documents/', { params })
-      // Handle paginated response - extract results array
-      const documents = res.data.results || res.data || []
-      setItems(documents)
-      setCurrentPage(1)
+
+      if (res.data && Array.isArray(res.data.results)) {
+        // Paginated DRF response
+        const documents = res.data.results
+        setItems(documents)
+        setTotalCount(typeof res.data.count === 'number' ? res.data.count : documents.length)
+      } else {
+        // Fallback for non-paginated response
+        const documents = res.data && Array.isArray(res.data) ? res.data : []
+        setItems(documents)
+        setTotalCount(documents.length)
+      }
     } catch (err) {
       console.error('Failed to load documents:', err)
     }
@@ -61,10 +78,12 @@ export default function DocumentsList() {
     })
   }, [])
 
-  // Auto-reload when filters change
+  // Auto-reload when filters change - reset to first page
   useEffect(() => {
-    load()
-  }, [typeFilter, sourceFilter, statusFilter, coFilter, dirFilter, dateFrom, dateTo])
+    setCurrentPage(1)
+    load(1, pageSize)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeFilter, sourceFilter, statusFilter, letterCategoryFilter, letterTypeFilter, coFilter, dirFilter, dateFrom, dateTo, pageSize])
 
   // Auto-search on keystrokes (debounced)
   useEffect(() => {
@@ -72,7 +91,8 @@ export default function DocumentsList() {
       clearTimeout(qDebounceRef.current)
     }
     qDebounceRef.current = setTimeout(() => {
-      load()
+      setCurrentPage(1)
+      load(1, pageSize)
     }, 300)
     return () => {
       if (qDebounceRef.current) clearTimeout(qDebounceRef.current)
@@ -89,15 +109,11 @@ export default function DocumentsList() {
     return { value: String(d.id), label: `${d.code} - ${localLabel}` }
   })
 
-  // Pagination
-  const totalPages = Math.max(1, Math.ceil(items.length / pageSize))
-  const paginatedItems = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    return items.slice(start, start + pageSize)
-  }, [items, currentPage, pageSize])
+  // Pagination (server-side)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4 bg-slate-50 dark:bg-slate-900 min-h-screen">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-lg bg-[#0B3C5D] dark:bg-[#F0B429] flex items-center justify-center">
@@ -165,6 +181,19 @@ export default function DocumentsList() {
             <option value="OUTGOING">{t('outgoing')}</option>
             <option value="MEMO">{t('memo')}</option>
           </select>
+          <select className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 dark:text-white text-sm" value={letterCategoryFilter} onChange={(e)=>{setLetterCategoryFilter(e.target.value)}}>
+            <option value="">{t('all_categories')}</option>
+            <option value="GENERAL">{t('general_letter')}</option>
+            <option value="REGULATORY">{t('regulatory_letter')}</option>
+          </select>
+          <select className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 dark:text-white text-sm" value={letterTypeFilter} onChange={(e)=>{setLetterTypeFilter(e.target.value)}}>
+            <option value="">{t('all_types')}</option>
+            <option value="TECHNICAL">{t('technical_letter')}</option>
+            <option value="LEGAL">{t('legal_letter')}</option>
+            <option value="FINANCIAL">{t('financial_letter')}</option>
+            <option value="ADMINISTRATIVE">{t('administrative_letter')}</option>
+            <option value="GENERAL">{t('general_letter')}</option>
+          </select>
           <select className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 dark:text-white text-sm" value={statusFilter} onChange={(e)=>{setStatusFilter(e.target.value)}}>
             <option value="">{t('all_statuses')}</option>
             <option value="REGISTERED">{t('registered')}</option>
@@ -175,7 +204,7 @@ export default function DocumentsList() {
             <option value="RESPONDED">{t('responded')}</option>
             <option value="CLOSED">{t('closed')}</option>
           </select>
-          <button className="inline-flex items-center gap-2 bg-[#0B3C5D] dark:bg-[#F0B429] text-white dark:text-[#0B3C5D] rounded-lg px-4 py-2 font-medium hover:bg-[#09324F] dark:hover:bg-[#D9A020]" onClick={load}>
+          <button className="inline-flex items-center gap-2 bg-[#0B3C5D] dark:bg-[#F0B429] text-white dark:text-[#0B3C5D] rounded-lg px-4 py-2 font-medium hover:bg-[#09324F] dark:hover:bg-[#D9A020]" onClick={() => { setCurrentPage(1); load(1, pageSize); }}>
             <Filter className="w-4 h-4" />
             {t('apply_filters')}
           </button>
@@ -211,7 +240,7 @@ export default function DocumentsList() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-x-auto">
         {/* Search Bar - Top Right */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{t('documents')}</h3>
@@ -235,11 +264,13 @@ export default function DocumentsList() {
             )}
           </div>
         </div>
-        <table className="w-full text-sm">
+        <table className="w-full text-sm min-w-max">
           <thead>
             <tr className="text-left border-b dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
               <th className="py-3 px-4 dark:text-slate-300">{t('ref_no')}</th>
               <th className="px-4 dark:text-slate-300">{t('type')}</th>
+              <th className="px-4 dark:text-slate-300">{t('category')}</th>
+              <th className="px-4 dark:text-slate-300">{t('letter_type')}</th>
               <th className="px-4 dark:text-slate-300">{t('direction')}</th>
               <th className="px-4 dark:text-slate-300">{t('source')}</th>
               <th className="px-4 dark:text-slate-300">{t('office')}</th>
@@ -250,7 +281,7 @@ export default function DocumentsList() {
             </tr>
           </thead>
           <tbody>
-            {paginatedItems.length ? paginatedItems.map((d)=> {
+            {items.length ? items.map((d)=> {
               const statusColors = {
                 REGISTERED: 'bg-slate-100 text-slate-700 dark:bg-slate-600 dark:text-slate-200',
                 DIRECTED: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
@@ -278,6 +309,22 @@ export default function DocumentsList() {
                   {d.priority === 'HIGH' && <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">HIGH</span>}
                 </td>
                 <td className="px-4"><span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${typeColors[d.doc_type] || ''}`}>{d.doc_type}</span></td>
+                <td className="px-4">
+                  {d.letter_category === 'REGULATORY' ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                      {d.letter_category_display || d.letter_category}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                      {d.letter_category_display || d.letter_category}
+                    </span>
+                  )}
+                </td>
+                <td className="px-4">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                    {d.letter_type_display || d.letter_type}
+                  </span>
+                </td>
                 <td className="px-4"><span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${directionColors[d.perspective_direction] || ''}`}>{directionLabel}</span></td>
                 <td className="px-4 dark:text-slate-300 text-xs">{d.source === 'INTERNAL' ? t('internal') : t('external')}</td>
                 <td className="px-4 dark:text-slate-300 text-xs">{d.department_name || 'CEO Office'}</td>
@@ -297,10 +344,17 @@ export default function DocumentsList() {
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
-          onPageChange={setCurrentPage}
+          onPageChange={(page) => {
+            setCurrentPage(page)
+            load(page, pageSize)
+          }}
           pageSize={pageSize}
-          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1) }}
-          totalItems={items.length}
+          onPageSizeChange={(size) => {
+            setPageSize(size)
+            setCurrentPage(1)
+            load(1, size)
+          }}
+          totalItems={totalCount}
         />
       </div>
     </div>

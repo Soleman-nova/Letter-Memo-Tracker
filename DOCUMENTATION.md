@@ -1,9 +1,9 @@
 # EEU Centralized Correspondence Registry — Technical Documentation
 
-**Project:** EEU Centralized Correspondence Registry  
+**Project:** EEU Centralized Correspondence & Payment Registry  
 **Organization:** Ethiopian Electric Utility (EEU)  
-**Version:** 1.0.0  
-**Date:** February 2026  
+**Version:** 2.0.0  
+**Date:** April 2026  
 
 ---
 
@@ -13,34 +13,64 @@
 2. [Architecture](#2-architecture)
 3. [Technology Stack](#3-technology-stack)
 4. [Backend Documentation](#4-backend-documentation)
-5. [Frontend Documentation](#5-frontend-documentation)
-6. [Authentication & Security](#6-authentication--security)
-7. [Document Workflow Engine](#7-document-workflow-engine)
-8. [Internationalization](#8-internationalization)
-9. [Ethiopian Calendar Integration](#9-ethiopian-calendar-integration)
-10. [Deployment Guide](#10-deployment-guide)
-11. [Configuration Reference](#11-configuration-reference)
-12. [Database Schema](#12-database-schema)
-13. [API Reference](#13-api-reference)
-14. [Project Structure](#14-project-structure)
+5. [Payment Management](#5-payment-management)
+6. [Performance Tracking](#6-performance-tracking)
+7. [Frontend Documentation](#7-frontend-documentation)
+8. [Authentication & Security](#8-authentication--security)
+9. [Document Workflow Engine](#9-document-workflow-engine)
+10. [Internationalization](#10-internationalization)
+11. [Ethiopian Calendar Integration](#11-ethiopian-calendar-integration)
+12. [Deployment Guide](#12-deployment-guide)
+13. [Configuration Reference](#13-configuration-reference)
+14. [Database Schema](#14-database-schema)
+15. [API Reference](#15-api-reference)
+16. [Project Structure](#16-project-structure)
 
 ---
 
 ## 1. System Overview
 
-The EEU Centralized Correspondence Registry is a full-stack web application that digitizes the document tracking workflow at Ethiopian Electric Utility. It manages the lifecycle of three document types — **Incoming Letters**, **Outgoing Letters**, and **Memos** — across 14 distinct routing scenarios between the CEO Office and 13 CxO (Chief x Officer) departmental offices.
+The EEU Centralized Correspondence & Payment Registry is a comprehensive full-stack web application that digitizes document tracking and payment management workflows at Ethiopian Electric Utility. It manages the lifecycle of three document types — **Incoming Letters**, **Outgoing Letters**, and **Memos** — across 15 distinct routing scenarios between the CEO Office and 13 CxO (Chief x Officer) departmental offices, plus complete payment tracking with multi-currency support.
 
 ### Key Capabilities
+
+**Document Management:**
 - **Document Registration** with manual reference numbers
+- **15 Workflow Scenarios** including CEO direction workflows
+- **Letter Categorization** (General/Regulatory) with regulatory body management
+- **Letter Types** (Technical, Legal, Financial, Administrative, General)
 - **Multi-step Workflow** (Register → Direct → Dispatch → Receive → Close)
-- **Role-Based Access Control** with 5 user roles
-- **Receipt Tracking** per directed office
+- **Receipt Tracking** per directed office with delivery status
 - **CC Acknowledgment** (mark as seen) for copied offices
-- **Ethiopian & Gregorian Calendar** support
+- **File Attachments** with streaming upload (no size limit)
+- **Activity Audit Trail** with CSV export for compliance
+- **Timeline View** with unified activities, receipts, and acknowledgments
+
+**Payment Management:**
+- **Payment Registration** with invoice and TT number tracking
+- **Multi-Currency Support** (ETB, USD, EUR)
+- **Payment Types** (Invoice, Advance, Reimbursement, Petty Cash, Other)
+- **Duplicate Detection** for invoices and TT numbers
+- **Vendor Management** with autocomplete from history
+- **Saved Filters** for quick access to common searches
+- **Monthly Reports** with currency breakdowns
+- **Excel Export** with multiple sheets
+
+**Performance Analytics:**
+- **Best Performers Dashboard** for CEO and CEO Secretary
+- **Receipt Performance** tracking (dispatch to receipt time)
+- **CC Acknowledgment Performance** tracking
+- **Department Rankings** with visual badges
+- **Historical Trends** with month-over-month comparison
+- **Monthly Snapshots** for long-term analysis
+
+**System Features:**
+- **Role-Based Access Control** with 5 user roles
+- **Ethiopian & Gregorian Calendar** support with date picker
 - **Bilingual Interface** (English & Amharic)
-- **Dark Mode** with persistent preference
-- **File Attachments** with download links
-- **Activity Audit Trail** for every document action
+- **Dark Mode** with persistent preference across all pages
+- **JWT Authentication** with automatic token refresh
+- **Responsive Design** with mobile support
 
 ---
 
@@ -255,7 +285,226 @@ CxO-level (department is set):
 
 ---
 
-## 5. Frontend Documentation
+## 5. Payment Management
+
+### 5.1 Payment App (`apps.payments`)
+
+The payment management system tracks all financial transactions including invoices, advances, reimbursements, and other payment types.
+
+#### Models
+
+**`Payment`**
+- `temp_ref_no` (CharField) — Temporary reference before official registration
+- `ref_no` (CharField, unique) — Official payment reference number
+- `registry_date` (DateField) — Date of payment registration
+- `tt_number` (CharField) — TT (Telegraphic Transfer) number
+- `arrival_date` (DateField) — Date payment request arrived
+- `amount` (DecimalField) — Payment amount (max 15 digits, 2 decimal places)
+- `currency` (CharField) — ETB, USD, or EUR
+- `payment_type` (CharField) — INVOICE, ADVANCE, REIMBURSEMENT, PETTY_CASH, OTHER
+- `vendor_name` (CharField) — Name of vendor/payee
+- `invoice_number` (CharField) — Invoice reference number
+- `description` (TextField) — Payment description/purpose
+- `payment_date` (DateField, nullable) — Actual payment date
+- `due_date` (DateField, nullable) — Payment due date
+- `priority` (CharField) — LOW, NORMAL, HIGH, URGENT
+- `status` (CharField) — PENDING, APPROVED, PAID, REJECTED, CANCELLED
+- `notes` (TextField) — Additional notes
+- `created_by` (ForeignKey to User) — User who created the payment
+- `created_at` (DateTimeField) — Creation timestamp
+- `updated_at` (DateTimeField) — Last update timestamp
+
+**`PaymentHistory`**
+- `payment` (ForeignKey to Payment) — Related payment
+- `actor` (ForeignKey to User) — User who made the change
+- `action` (CharField) — Action performed (e.g., "Status changed to APPROVED")
+- `old_value` (TextField) — Previous value
+- `new_value` (TextField) — New value
+- `notes` (TextField) — Change notes
+- `created_at` (DateTimeField) — Timestamp
+
+#### Serializers
+
+**`PaymentSerializer`**
+- Full payment details with creator information
+- Includes `created_by_name` computed field
+- Validates unique constraints for `ref_no`, `invoice_number`, `tt_number`
+- Automatic duplicate detection
+
+**`PaymentHistorySerializer`**
+- Payment change history with actor details
+- Includes `actor_name` computed field
+
+#### Views (`PaymentViewSet`)
+
+**Standard CRUD:**
+- `list` — Paginated payment list with filtering
+- `retrieve` — Full payment details with history
+- `create` — Create new payment with validation
+- `update`/`partial_update` — Update payment details
+- `destroy` — Delete payment (restricted to SUPER_ADMIN)
+
+**Custom Actions:**
+
+| Action | Method | Description |
+|--------|--------|-------------|
+| `update_status` | POST | Change payment status with history logging |
+| `monthly_summary` | GET | Aggregate payment data by month and currency |
+| `check_duplicate` | GET | Check for duplicate invoice/TT numbers |
+
+**Query Filtering:**
+- `q` — Search in ref_no, vendor_name, invoice_number, tt_number, description
+- `status` — Filter by payment status
+- `payment_type` — Filter by payment type
+- `currency` — Filter by currency
+- `date_from`, `date_to` — Date range on registry_date
+- `page`, `page_size` — Pagination
+
+#### Permissions
+
+- **CXO_FINANCE role** required for payment management
+- CEO and CEO Secretary can view all payments
+- SUPER_ADMIN has full access
+
+### 5.2 Payment Features
+
+**Duplicate Detection:**
+- Real-time checking for duplicate invoice numbers
+- Real-time checking for duplicate TT numbers
+- Warning messages displayed to users
+- Prevents accidental duplicate entries
+
+**Saved Filters:**
+- Users can save common filter combinations
+- Stored in browser localStorage
+- Quick access to frequently used searches
+- Named filter presets
+
+**Excel Export:**
+- Multiple sheets: Summary, Details, By Type, By Status
+- Currency totals and breakdowns
+- Formatted dates and numbers
+- Professional styling
+
+**Monthly Reports:**
+- Aggregate totals by currency
+- Breakdown by payment type
+- Breakdown by status
+- Count and sum statistics
+
+---
+
+## 6. Performance Tracking
+
+### 6.1 Performance Models
+
+**`DepartmentPerformanceSnapshot`**
+- `department` (ForeignKey to Department) — Department being tracked
+- `month` (DateField) — Month of snapshot (first day of month)
+- `receipt_avg_hours` (FloatField) — Average hours from dispatch to receipt
+- `receipt_count` (IntegerField) — Number of receipts in period
+- `cc_avg_hours` (FloatField) — Average hours from dispatch to acknowledgment
+- `cc_count` (IntegerField) — Number of acknowledgments in period
+- `created_at` (DateTimeField) — Snapshot creation time
+
+**Unique Constraint:** (department, month)
+
+### 6.2 Performance Calculation
+
+Performance metrics are calculated based on:
+
+**Receipt Performance:**
+1. Filter documents with `dispatched_at` timestamp in the selected month
+2. Join with `DocumentReceipt` records
+3. Calculate time difference: `received_at - dispatched_at`
+4. Average the time differences per department
+5. Convert to hours for display
+
+**CC Acknowledgment Performance:**
+1. Filter documents with `dispatched_at` timestamp in the selected month
+2. Join with `DocumentAcknowledgment` records
+3. Calculate time difference: `acknowledged_at - dispatched_at`
+4. Average the time differences per department
+5. Convert to hours for display
+
+### 6.3 Performance API (`PerformanceTrackingMixin`)
+
+**Endpoints:**
+
+**`GET /api/documents/documents/performance/`**
+- Returns current month's performance data
+- Includes both receipt and CC acknowledgment metrics
+- Departments ranked by average time (fastest first)
+- Includes document counts for each department
+
+**`GET /api/documents/documents/performance/history/`**
+- Query params: `year`, `month`
+- Returns historical snapshot data
+- Used for month-over-month comparisons
+
+**Response Format:**
+```json
+{
+  "receipt_performance": [
+    {
+      "department_id": 2,
+      "department_code": "CFO",
+      "department_name": "Finance Office",
+      "average_hours": 4.5,
+      "document_count": 25,
+      "rank": 1
+    }
+  ],
+  "cc_performance": [...]
+}
+```
+
+### 6.4 Performance Snapshots
+
+**Automated Generation:**
+- Django management command: `generate_performance_snapshot`
+- Should be scheduled to run monthly (1st of each month)
+- Creates snapshots for all departments
+- Stores historical data for trend analysis
+
+**Scheduling (Windows):**
+```powershell
+# Create scheduled task to run on 1st of each month at midnight
+schtasks /create /tn "EEU Performance Snapshot" /tr "C:\EEU\backend\venv\Scripts\python.exe C:\EEU\backend\manage.py generate_performance_snapshot" /sc monthly /d 1 /st 00:00
+```
+
+### 6.5 Performance Dashboard Features
+
+**Best Performers Section:**
+- Displayed on CEO and CEO Secretary dashboards only
+- Two categories: Receipt Performance and CC Acknowledgment Performance
+- Top 3 departments highlighted with badges:
+  - 🥇 Gold (1st place)
+  - 🥈 Silver (2nd place)
+  - 🥉 Bronze (3rd place)
+- Departments with no data shown at bottom
+
+**Trend Indicators:**
+- Compare current month vs previous month
+- Up arrow (↑) for slower performance
+- Down arrow (↓) for faster performance
+- Horizontal line (→) for stable performance
+- Color-coded: green (improved), red (declined), gray (stable)
+
+**Month Selector:**
+- Dropdown to view historical data
+- Last 12 months available
+- Automatic data loading on selection
+
+**Excel Export:**
+- Download performance data as Excel file
+- Separate sheets for receipt and CC performance
+- Includes rankings and trends
+- Formatted for easy analysis
+
+---
+
+## 7. Frontend Documentation
 
 ### 5.1 Project Structure
 

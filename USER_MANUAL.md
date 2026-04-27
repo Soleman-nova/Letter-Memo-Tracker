@@ -1,4 +1,7 @@
-# EEU Centralized Correspondence Registry - User Manual
+# EEU Centralized Correspondence & Payment Registry - User Manual
+
+**Version:** 2.0  
+**Last Updated:** April 2026
 
 ## Table of Contents
 1. [System Overview](#system-overview)
@@ -7,29 +10,54 @@
 4. [Document Management](#document-management)
 5. [Document Scenarios](#document-scenarios)
 6. [Workflows and Status Transitions](#workflows-and-status-transitions)
-7. [Search and Filtering](#search-and-filtering)
-8. [Attachments and File Management](#attachments-and-file-management)
-9. [Reporting and Analytics](#reporting-and-analytics)
-10. [System Administration](#system-administration)
-11. [Troubleshooting](#troubleshooting)
-12. [Glossary](#glossary)
+7. [Payment Management](#payment-management)
+8. [Performance Analytics](#performance-analytics)
+9. [Search and Filtering](#search-and-filtering)
+10. [Attachments and File Management](#attachments-and-file-management)
+11. [Reporting and Analytics](#reporting-and-analytics)
+12. [System Administration](#system-administration)
+13. [Troubleshooting](#troubleshooting)
+14. [Glossary](#glossary)
 
 ---
 
 ## System Overview
 
-The EEU Centralized Correspondence Registry is a comprehensive document management system designed to track, manage, and monitor all official correspondence within the Ethiopian Electric Utility organization. The system provides end-to-end tracking of incoming letters, outgoing letters, and internal memos, ensuring proper routing, acknowledgment, and archival of all communications.
+The EEU Centralized Correspondence & Payment Registry is a comprehensive management system designed to track, manage, and monitor all official correspondence and financial transactions within the Ethiopian Electric Utility organization. The system provides end-to-end tracking of incoming letters, outgoing letters, internal memos, and payment processing, ensuring proper routing, acknowledgment, and archival of all communications and financial records.
 
 ### Key Features
-- **Document Registration**: Register incoming letters, outgoing letters, and internal memos
+
+**Document Management:**
+- **15 Document Scenarios**: Complete workflow coverage for all document types
+- **Letter Categorization**: General or Regulatory letters with regulatory body management
+- **Letter Types**: Technical, Legal, Financial, Administrative, General
 - **Role-Based Access Control**: Different user roles with specific permissions
 - **Workflow Management**: Automated routing based on document types and scenarios
 - **Status Tracking**: Real-time monitoring of document progress
-- **Search and Filter**: Advanced search capabilities with multiple criteria
 - **Acknowledgment System**: Track when documents are received and acknowledged
-- **Reporting**: Generate reports on document volumes and processing times
+- **Audit Trail**: Complete history with CSV export for compliance
+
+**Payment Management:**
+- **Payment Tracking**: Invoice, TT number, and vendor management
+- **Multi-Currency**: Support for ETB, USD, and EUR
+- **Payment Types**: Invoice, Advance, Reimbursement, Petty Cash, Other
+- **Duplicate Detection**: Automatic warnings for duplicate entries
+- **Monthly Reports**: Comprehensive payment summaries
+- **Excel Export**: Professional reports with multiple sheets
+
+**Performance Analytics:**
+- **Best Performers**: Department performance rankings
+- **Receipt Tracking**: Average time from dispatch to receipt
+- **CC Acknowledgment**: Average time from dispatch to acknowledgment
+- **Historical Trends**: Month-over-month comparison
+- **Visual Indicators**: Badges and trend arrows
+
+**System Features:**
 - **Bilingual Support**: Full English and Amharic language support
-- **Direction View (Incoming/Outgoing)**: Documents are labeled as incoming/outgoing based on the viewer’s office perspective
+- **Ethiopian Calendar**: Date picker and display with ET/GC toggle
+- **Dark Mode**: Persistent dark/light theme preference
+- **Search and Filter**: Advanced search capabilities with saved filters
+- **Responsive Design**: Works on desktop, tablet, and mobile devices
 
 ---
 
@@ -299,6 +327,320 @@ If the CEO Secretary forwards the memo to one or more CxO offices, the memo will
 
 #### From RESPONDED
 - **To CLOSED**: Final document closure
+
+---
+
+## Payment Management
+
+### Overview
+
+The Payment Management module allows authorized users (primarily Finance department) to track all financial transactions including invoices, advances, reimbursements, and other payment types. The system supports multiple currencies and provides comprehensive reporting capabilities.
+
+### Accessing Payment Management
+
+1. Click **"Payments"** in the navigation menu
+2. The Payments page displays a list of all payments with filters
+3. Click **"New Payment"** to register a new payment
+
+### Creating a New Payment
+
+#### Step 1: Access Payment Form
+1. Navigate to Payments page
+2. Click "New Payment" button
+3. Payment registration form appears
+
+#### Step 2: Enter Payment Information
+
+**Required Fields:**
+- **Temporary Ref No**: Temporary reference number (e.g., TMP-001)
+- **Official Ref No**: Official payment reference number
+- **Registry Date**: Date payment was registered
+- **Amount**: Payment amount (numeric value)
+- **Currency**: Select ETB, USD, or EUR
+- **Payment Type**: Select from:
+  - Invoice
+  - Advance
+  - Reimbursement
+  - Petty Cash
+  - Other
+
+**Optional Fields:**
+- **TT Number**: Telegraphic Transfer number
+- **Arrival Date**: Date payment request arrived
+- **Vendor Name**: Name of vendor/payee (autocomplete from history)
+- **Invoice Number**: Invoice reference number
+- **Description**: Payment purpose/description
+- **Payment Date**: Actual payment date
+- **Due Date**: Payment due date
+- **Priority**: LOW, NORMAL, HIGH, URGENT
+- **Notes**: Additional notes
+
+#### Step 3: Duplicate Detection
+
+The system automatically checks for duplicates:
+- **Invoice Number**: Warning if invoice already exists
+- **TT Number**: Warning if TT number already exists
+- You can proceed despite warnings if intentional
+
+#### Step 4: Save Payment
+
+1. Review all entered information
+2. Click "Save" to register the payment
+3. Payment is created with status "PENDING"
+
+### Managing Payments
+
+#### Updating Payment Status
+
+1. Open payment detail page
+2. Click "Update Status" button
+3. Select new status:
+   - PENDING → APPROVED
+   - APPROVED → PAID
+   - Any status → REJECTED or CANCELLED
+4. Add notes explaining the status change
+5. Click "Update"
+
+**Status Change History:**
+- All status changes are logged
+- View history on payment detail page
+- Shows who made the change and when
+
+#### Editing Payment Details
+
+1. Navigate to payment detail page
+2. Click "Edit" button (if you have permission)
+3. Modify required fields
+4. Click "Save" to update
+
+### Payment Filters
+
+#### Available Filters
+
+- **Search**: Search by ref no, vendor name, invoice number, TT number
+- **Status**: Filter by payment status
+- **Payment Type**: Filter by payment type
+- **Currency**: Filter by currency
+- **Date Range**: Filter by registry date
+
+#### Using Filters
+
+1. Enter search criteria in filter fields
+2. Click "Apply Filters" to update the list
+3. Clear filters by clicking "Clear Filters"
+
+#### Saved Filters
+
+**Save a Filter:**
+1. Set up your desired filters
+2. Click "Save Filter" button
+3. Enter a name for the filter (e.g., "Pending ETB Invoices")
+4. Click "Save"
+
+**Use a Saved Filter:**
+1. Click "Saved Filters" dropdown
+2. Select a saved filter from the list
+3. Filters are automatically applied
+
+**Delete a Saved Filter:**
+1. Click "Saved Filters" dropdown
+2. Click the delete icon next to the filter name
+
+### Payment Reports
+
+#### Monthly Summary Report
+
+1. Click "Reports" button on Payments page
+2. Select year and month
+3. Click "Generate Report"
+
+**Report Contents:**
+- Total payment count
+- Total amounts by currency
+- Breakdown by payment type
+- Breakdown by status
+- Average payment amount
+
+#### Excel Export
+
+**Export All Payments:**
+1. Apply desired filters
+2. Click "Export to Excel" button
+3. Excel file downloads with multiple sheets:
+   - **Summary**: Overview statistics
+   - **Details**: All payment records
+   - **By Type**: Grouped by payment type
+   - **By Status**: Grouped by status
+
+**Export Features:**
+- Professional formatting
+- Currency symbols
+- Date formatting
+- Totals and subtotals
+- Color-coded status
+
+### Payment Permissions
+
+**Who Can Access Payments:**
+- **SUPER_ADMIN**: Full access to all payments
+- **CEO**: View all payments
+- **CEO_SECRETARY**: View all payments
+- **CXO_FINANCE**: Full access (create, edit, update status)
+- **Other CXO roles**: No access
+
+### Best Practices
+
+1. **Always check for duplicates** before creating a payment
+2. **Use descriptive vendor names** for easy searching
+3. **Add notes** when changing status to explain decisions
+4. **Save common filters** for frequently used searches
+5. **Review monthly reports** to track spending patterns
+6. **Export data regularly** for backup and analysis
+
+---
+
+## Performance Analytics
+
+### Overview
+
+The Performance Analytics feature tracks department performance in processing documents. It measures how quickly departments receive documents and acknowledge CC'd documents. This feature is available only to CEO and CEO Secretary roles.
+
+### Accessing Performance Dashboard
+
+1. Log in as CEO or CEO Secretary
+2. Navigate to Dashboard
+3. Scroll to "Best Performers" section
+
+### Understanding Performance Metrics
+
+#### Receipt Performance
+
+**What it measures:**
+- Time from when a document is dispatched to when the department marks it as received
+- Calculated in hours
+- Lower is better (faster receipt confirmation)
+
+**How it's calculated:**
+1. System identifies all documents dispatched in the selected month
+2. For each department, calculates: `received_at - dispatched_at`
+3. Averages all receipt times for the department
+4. Converts to hours for display
+
+#### CC Acknowledgment Performance
+
+**What it measures:**
+- Time from when a document is dispatched to when CC'd departments mark it as "Seen"
+- Calculated in hours
+- Lower is better (faster acknowledgment)
+
+**How it's calculated:**
+1. System identifies all documents dispatched in the selected month
+2. For each department, calculates: `acknowledged_at - dispatched_at`
+3. Averages all acknowledgment times for the department
+4. Converts to hours for display
+
+### Performance Rankings
+
+#### Ranking Badges
+
+Departments are ranked by performance (fastest first):
+- **🥇 Gold Badge**: 1st place (fastest)
+- **🥈 Silver Badge**: 2nd place
+- **🥉 Bronze Badge**: 3rd place
+- **No badge**: 4th place and below
+
+#### Departments with No Data
+
+- Shown at the bottom of the list
+- Labeled "No data"
+- May indicate no documents processed in the period
+
+### Trend Indicators
+
+Each department shows a trend compared to the previous month:
+
+- **↓ Green Arrow**: Performance improved (faster than last month)
+- **↑ Red Arrow**: Performance declined (slower than last month)
+- **→ Gray Line**: Performance stable (similar to last month)
+
+**Trend Calculation:**
+- Compares current month average to previous month average
+- Difference > 1 hour = trend shown
+- Difference ≤ 1 hour = stable
+
+### Viewing Historical Data
+
+#### Month Selector
+
+1. Click the month dropdown in Best Performers section
+2. Select a previous month (up to 12 months back)
+3. Performance data updates automatically
+
+**Available Months:**
+- Current month (default)
+- Previous 11 months
+- Data based on monthly snapshots
+
+#### Monthly Snapshots
+
+- System automatically creates snapshots on the 1st of each month
+- Snapshots preserve historical data
+- Used for trend analysis and reporting
+
+### Exporting Performance Data
+
+#### Excel Export
+
+1. Click "Export to Excel" button in Best Performers section
+2. Excel file downloads with two sheets:
+   - **Receipt Performance**: All departments ranked
+   - **CC Performance**: All departments ranked
+
+**Export Contents:**
+- Department name and code
+- Average hours
+- Document count
+- Rank
+- Formatted for easy analysis
+
+### Interpreting Performance Data
+
+#### Good Performance Indicators
+
+- **Low average hours**: Department processes documents quickly
+- **High document count**: Department handles many documents
+- **Improving trend**: Performance getting better over time
+- **Consistent ranking**: Stable, reliable performance
+
+#### Areas for Improvement
+
+- **High average hours**: May indicate bottlenecks
+- **Declining trend**: Performance getting worse
+- **Low document count with high hours**: Inefficiency
+
+### Using Performance Data
+
+#### For Management
+
+1. **Identify Best Practices**: Learn from top performers
+2. **Address Bottlenecks**: Focus on departments with declining performance
+3. **Set Benchmarks**: Use top performers as targets
+4. **Recognize Excellence**: Acknowledge high-performing departments
+
+#### For Department Heads
+
+1. **Monitor Your Performance**: Track your department's ranking
+2. **Improve Processes**: Identify ways to reduce processing time
+3. **Compare with Peers**: See how you rank against other departments
+4. **Track Progress**: Monitor trends over time
+
+### Performance Improvement Tips
+
+1. **Check Documents Regularly**: Don't let documents sit unprocessed
+2. **Acknowledge Promptly**: Mark CC'd documents as seen quickly
+3. **Confirm Receipt Immediately**: Mark received documents right away
+4. **Assign Responsibility**: Designate someone to monitor incoming documents
+5. **Set Internal Deadlines**: Create urgency for document processing
 
 ---
 

@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api'
 import { useTranslation } from 'react-i18next'
-import { LayoutDashboard, FilePlus, FileText, Inbox, Send, FileStack, Clock, CheckCircle, AlertCircle, DollarSign, TrendingUp, Zap } from 'lucide-react'
+import { LayoutDashboard, FilePlus, FileText, Inbox, Send, FileStack, Clock, CheckCircle, AlertCircle, DollarSign, TrendingUp, Zap, Download, ChevronUp, ChevronDown } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import EthDateDisplay from '../components/EthDateDisplay'
+import * as XLSX from 'xlsx'
 
 export default function Dashboard() {
   const { t } = useTranslation()
@@ -13,6 +14,11 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, incoming: 0, outgoing: 0, memo: 0, pending: 0, received: 0 })
   const [paymentStats, setPaymentStats] = useState({ total: 0, totalAmountMonth: { ETB: 0, USD: 0, EUR: 0 }, thisMonth: 0, thisWeek: 0 })
   const [recent, setRecent] = useState([])
+  const [performanceData, setPerformanceData] = useState({ receipt_performance: [], cc_performance: [] })
+  const [selectedMonth, setSelectedMonth] = useState('current')
+  const [historicalData, setHistoricalData] = useState(null)
+  const [availableMonths, setAvailableMonths] = useState([])
+  const [previousMonthData, setPreviousMonthData] = useState(null)
 
   useEffect(() => {
     const load = async () => {
@@ -25,25 +31,41 @@ export default function Dashboard() {
           api.get('/api/documents/documents/', { params: { doc_type: 'MEMO' } }),
         ]
         
-        // Add payment stats for CEO and CEO Secretary
+        // Add payment stats and performance data for CEO and CEO Secretary
         if (isCeo || isCeoSecretary) {
           promises.push(api.get('/api/payments/payments/'))
+          promises.push(api.get('/api/documents/documents/performance/'))
         }
         
         const results = await Promise.all(promises)
-        const [allRes, inRes, outRes, memoRes, paymentsRes] = results
+        const [allRes, inRes, outRes, memoRes, paymentsRes, performanceRes] = results
         
         // Handle paginated responses - extract results array
         const all = allRes.data.results || allRes.data || []
         const incoming = inRes.data.results || inRes.data || []
         const outgoing = outRes.data.results || outRes.data || []
         const memo = memoRes.data.results || memoRes.data || []
+
+        // Use paginator counts when available so totals reflect all records, not just first page
+        const totalAll = Array.isArray(allRes.data.results) && typeof allRes.data.count === 'number'
+          ? allRes.data.count
+          : all.length
+        const totalIncoming = Array.isArray(inRes.data.results) && typeof inRes.data.count === 'number'
+          ? inRes.data.count
+          : incoming.length
+        const totalOutgoing = Array.isArray(outRes.data.results) && typeof outRes.data.count === 'number'
+          ? outRes.data.count
+          : outgoing.length
+        const totalMemo = Array.isArray(memoRes.data.results) && typeof memoRes.data.count === 'number'
+          ? memoRes.data.count
+          : memo.length
         
         setStats({
-          total: all.length,
-          incoming: incoming.length,
-          outgoing: outgoing.length,
-          memo: memo.length,
+          total: totalAll,
+          incoming: totalIncoming,
+          outgoing: totalOutgoing,
+          memo: totalMemo,
+          // pending/received are still computed from the first page sample
           pending: all.filter(d => ['REGISTERED','DIRECTED','DISPATCHED'].includes(d.status)).length,
           received: all.filter(d => d.status === 'RECEIVED').length,
         })
@@ -56,6 +78,9 @@ export default function Dashboard() {
         if (paymentsRes) {
           const payments = paymentsRes.data.results || paymentsRes.data || []
           const registeredPayments = payments.filter(p => p.status === 'PENDING_PAYMENT' || p.status === 'TRANSFERRED_TO_BANK' || p.status === 'PAYMENT_COMPLETE')
+          const totalPayments = Array.isArray(paymentsRes.data.results) && typeof paymentsRes.data.count === 'number'
+            ? paymentsRes.data.count
+            : registeredPayments.length
           const oneWeekAgo = new Date()
           oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
           const oneMonthAgo = new Date()
@@ -72,7 +97,7 @@ export default function Dashboard() {
             }, { ETB: 0, USD: 0, EUR: 0 })
             
             setPaymentStats({
-              total: registeredPayments.length,
+              total: totalPayments,
               totalAmountMonth: amountsByCurrency,
               thisMonth: thisMonthPayments.length,
               thisWeek: registeredPayments.filter(p => new Date(p.registration_date) >= oneWeekAgo).length,
@@ -80,19 +105,132 @@ export default function Dashboard() {
           } else if (isCeoSecretary) {
             // CEO Secretary sees: Total, Arrived, Pending Payment, This Week
             setPaymentStats({
-              total: registeredPayments.length,
+              total: totalPayments,
               arrived: payments.filter(p => p.status === 'ARRIVED').length,
               registered: payments.filter(p => p.status === 'PENDING_PAYMENT').length,
               thisWeek: registeredPayments.filter(p => new Date(p.registration_date) >= oneWeekAgo).length,
             })
           }
         }
+        
+        // Set performance data
+        if (performanceRes) {
+          setPerformanceData({
+            receipt_performance: performanceRes.data.receipt_performance || [],
+            cc_performance: performanceRes.data.cc_performance || []
+          })
+          
+          // Generate available months (current + last 12 months)
+          const months = []
+          const now = new Date()
+          for (let i = 0; i < 12; i++) {
+            const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+            months.push({
+              value: i === 0 ? 'current' : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+              label: i === 0 ? 'Current Month' : date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+            })
+          }
+          setAvailableMonths(months)
+          
+          // Load previous month data for comparison
+          const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+          const prevMonthStr = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}`
+          try {
+            const prevRes = await api.get(`/api/documents/documents/performance/history/?month=${prevMonthStr}`)
+            setPreviousMonthData({
+              receipt_performance: prevRes.data.receipt_performance || [],
+              cc_performance: prevRes.data.cc_performance || []
+            })
+          } catch (err) {
+            console.log('No previous month data available')
+          }
+        }
+      } catch (error) {
+        console.error('Dashboard load error:', error)
       } finally {
         setLoading(false)
       }
     }
     load()
   }, [isCeo, isCeoSecretary])
+
+  // Handle month selection
+  const handleMonthChange = async (monthValue) => {
+    setSelectedMonth(monthValue)
+    
+    if (monthValue === 'current') {
+      setHistoricalData(null)
+    } else {
+      try {
+        const res = await api.get(`/api/documents/documents/performance/history/?month=${monthValue}`)
+        setHistoricalData({
+          receipt_performance: res.data.receipt_performance || [],
+          cc_performance: res.data.cc_performance || []
+        })
+      } catch (err) {
+        console.error('Error loading historical data:', err)
+        setHistoricalData({ receipt_performance: [], cc_performance: [] })
+      }
+    }
+  }
+
+  // Calculate trend compared to previous month
+  const getTrend = (currentData, metricType) => {
+    if (!previousMonthData || !currentData.has_data) return null
+    
+    const prevDept = previousMonthData[metricType === 'receipt' ? 'receipt_performance' : 'cc_performance']
+      .find(d => d.department_id === currentData.department_id)
+    
+    if (!prevDept || !prevDept.has_data) return null
+    
+    const change = ((currentData.average_hours - prevDept.average_hours) / prevDept.average_hours) * 100
+    return {
+      direction: change < -5 ? 'up' : change > 5 ? 'down' : 'stable',
+      percentage: Math.abs(change).toFixed(1)
+    }
+  }
+
+  // Get ranking badge
+  const getRankBadge = (index) => {
+    if (index === 0) return '🥇'
+    if (index === 1) return '🥈'
+    if (index === 2) return '🥉'
+    return `#${index + 1}`
+  }
+
+  // Export to Excel
+  const exportToExcel = () => {
+    const currentData = selectedMonth === 'current' ? performanceData : historicalData
+    if (!currentData) return
+
+    const receiptData = currentData.receipt_performance.filter(d => d.has_data).map((dept, idx) => ({
+      'Rank': idx + 1,
+      'Department Code': dept.department_code,
+      'Department Name': dept.department_name,
+      'Average Hours': dept.average_hours,
+      'Document Count': dept.document_count,
+      'Metric Type': 'Receipt Performance'
+    }))
+
+    const ccData = currentData.cc_performance.filter(d => d.has_data).map((dept, idx) => ({
+      'Rank': idx + 1,
+      'Department Code': dept.department_code,
+      'Department Name': dept.department_name,
+      'Average Hours': dept.average_hours,
+      'Document Count': dept.document_count,
+      'Metric Type': 'CC Acknowledgment Performance'
+    }))
+
+    const wb = XLSX.utils.book_new()
+    const wsReceipt = XLSX.utils.json_to_sheet(receiptData)
+    const wsCC = XLSX.utils.json_to_sheet(ccData)
+    
+    XLSX.utils.book_append_sheet(wb, wsReceipt, 'Receipt Performance')
+    XLSX.utils.book_append_sheet(wb, wsCC, 'CC Performance')
+    
+    const monthLabel = selectedMonth === 'current' ? 'Current' : selectedMonth
+    XLSX.writeFile(wb, `Performance_Report_${monthLabel}.xlsx`)
+  }
 
   return (
     <div className="p-4 space-y-6">
@@ -213,6 +351,174 @@ export default function Dashboard() {
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t('this_week')}</div>
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{loading ? '…' : paymentStats.thisWeek}</div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Best Performers Section - Only for CEO and CEO Secretary */}
+      {(isCeo || isCeoSecretary) && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700">
+          <div className="px-4 py-3 border-b dark:border-slate-700 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-yellow-500 dark:text-yellow-400" />
+              <span className="font-semibold dark:text-white">{t('best_performers')}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <select 
+                value={selectedMonth}
+                onChange={(e) => handleMonthChange(e.target.value)}
+                className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/20"
+              >
+                {availableMonths.map(month => (
+                  <option key={month.value} value={month.value}>{month.label}</option>
+                ))}
+              </select>
+              <button
+                onClick={exportToExcel}
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Excel
+              </button>
+            </div>
+          </div>
+          <div className="p-4">
+            {(() => {
+              const currentData = selectedMonth === 'current' ? performanceData : historicalData
+              if (!currentData) {
+                return <div className="text-center py-8 text-slate-500 dark:text-slate-400">Loading...</div>
+              }
+              
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Fastest Receipt Performance */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-green-600 dark:text-green-400 mb-3">{t('fastest_receipt')}</h4>
+                    {currentData.receipt_performance.length > 0 ? (
+                      <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                        {currentData.receipt_performance.map((dept, index) => {
+                          const trend = selectedMonth === 'current' ? getTrend(dept, 'receipt') : null
+                          return (
+                            <div 
+                              key={dept.department_id} 
+                              className={`flex items-center justify-between p-2.5 rounded-lg transition-colors ${
+                                dept.has_data 
+                                  ? 'bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30' 
+                                  : 'bg-slate-50 dark:bg-slate-700/50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <span className={`text-sm font-bold ${
+                                  index < 3 ? 'text-lg' : 'text-xs'
+                                } ${dept.has_data ? 'text-green-600 dark:text-green-400' : 'text-slate-400'}`}>
+                                  {dept.has_data ? getRankBadge(index) : '—'}
+                                </span>
+                                <div>
+                                  <div className={`text-sm font-medium ${dept.has_data ? 'dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
+                                    {dept.department_name}
+                                  </div>
+                                  <div className="text-xs text-slate-500 dark:text-slate-400">{dept.department_code}</div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                {dept.has_data ? (
+                                  <>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-sm font-bold text-green-600 dark:text-green-400">{dept.average_hours}h</span>
+                                      {trend && (
+                                        <span className={`text-xs flex items-center ${
+                                          trend.direction === 'up' ? 'text-green-600' : 
+                                          trend.direction === 'down' ? 'text-red-600' : 
+                                          'text-slate-500'
+                                        }`}>
+                                          {trend.direction === 'up' && <ChevronUp className="w-3 h-3" />}
+                                          {trend.direction === 'down' && <ChevronDown className="w-3 h-3" />}
+                                          {trend.direction !== 'stable' && `${trend.percentage}%`}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-slate-500 dark:text-slate-400">{dept.document_count} docs</div>
+                                  </>
+                                ) : (
+                                  <div className="text-xs text-slate-400 dark:text-slate-500">No data</div>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
+                        {t('no_performance_data')}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Fastest CC Acknowledgment Performance */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-3">{t('fastest_cc_acknowledgment')}</h4>
+                    {currentData.cc_performance.length > 0 ? (
+                      <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                        {currentData.cc_performance.map((dept, index) => {
+                          const trend = selectedMonth === 'current' ? getTrend(dept, 'cc_acknowledgment') : null
+                          return (
+                            <div 
+                              key={dept.department_id} 
+                              className={`flex items-center justify-between p-2.5 rounded-lg transition-colors ${
+                                dept.has_data 
+                                  ? 'bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30' 
+                                  : 'bg-slate-50 dark:bg-slate-700/50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <span className={`text-sm font-bold ${
+                                  index < 3 ? 'text-lg' : 'text-xs'
+                                } ${dept.has_data ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`}>
+                                  {dept.has_data ? getRankBadge(index) : '—'}
+                                </span>
+                                <div>
+                                  <div className={`text-sm font-medium ${dept.has_data ? 'dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
+                                    {dept.department_name}
+                                  </div>
+                                  <div className="text-xs text-slate-500 dark:text-slate-400">{dept.department_code}</div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                {dept.has_data ? (
+                                  <>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{dept.average_hours}h</span>
+                                      {trend && (
+                                        <span className={`text-xs flex items-center ${
+                                          trend.direction === 'up' ? 'text-green-600' : 
+                                          trend.direction === 'down' ? 'text-red-600' : 
+                                          'text-slate-500'
+                                        }`}>
+                                          {trend.direction === 'up' && <ChevronUp className="w-3 h-3" />}
+                                          {trend.direction === 'down' && <ChevronDown className="w-3 h-3" />}
+                                          {trend.direction !== 'stable' && `${trend.percentage}%`}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-slate-500 dark:text-slate-400">{dept.document_count} docs</div>
+                                  </>
+                                ) : (
+                                  <div className="text-xs text-slate-400 dark:text-slate-500">No data</div>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
+                        {t('no_performance_data')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}

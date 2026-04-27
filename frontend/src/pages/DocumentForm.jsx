@@ -18,6 +18,7 @@ export default function DocumentForm() {
   const { t, i18n } = useTranslation()
   const { user } = useAuth()
   const [departments, setDepartments] = useState([])
+  const [regulatoryBodies, setRegulatoryBodies] = useState([])
   const [loading, setLoading] = useState(true)
   const [existingDoc, setExistingDoc] = useState(null) // For edit mode
   const userRole = user?.profile?.role
@@ -30,6 +31,10 @@ export default function DocumentForm() {
     ref_no: '',
     subject: '',
     summary: '',
+    // Letter categorization
+    letter_category: 'GENERAL',
+    letter_type: 'GENERAL',
+    regulatory_body: '',
     // Parties / offices
     company_office_name: '',
     co_offices: [],
@@ -58,17 +63,29 @@ export default function DocumentForm() {
   const isEditMode = !!id
 
   useEffect(() => {
-    // Fetch departments from backend to get correct IDs
-    api.get('/api/core/departments/').then(r => {
-      // Handle paginated response - extract results array
-      const depts = r.data.results || r.data || []
-      setDepartments(depts)
-      setLoading(false)
-    }).catch(err => {
-      console.error('Failed to load departments:', err)
-      toast.error('Failed to load departments from server')
-      setLoading(false)
-    })
+    // Fetch departments and regulatory bodies from backend
+    const fetchData = async () => {
+      try {
+        const [deptsRes, bodiesRes] = await Promise.all([
+          api.get('/api/core/departments/'),
+          api.get('/api/documents/regulatory-bodies/')
+        ])
+        
+        // Handle paginated responses - extract results array
+        const depts = deptsRes.data.results || deptsRes.data || []
+        const bodies = bodiesRes.data.results || bodiesRes.data || []
+        
+        setDepartments(depts)
+        setRegulatoryBodies(bodies)
+        setLoading(false)
+      } catch (err) {
+        console.error('Failed to load data:', err)
+        toast.error('Failed to load data from server')
+        setLoading(false)
+      }
+    }
+    
+    fetchData()
   }, [])
 
   // Load existing document if in edit mode
@@ -90,6 +107,10 @@ export default function DocumentForm() {
           ref_no: doc.ref_no || '',
           subject: doc.subject || '',
           summary: doc.summary || '',
+          // Letter categorization
+          letter_category: doc.letter_category || 'GENERAL',
+          letter_type: doc.letter_type || 'GENERAL',
+          regulatory_body: doc.regulatory_body?.id || '',
           company_office_name: doc.company_office_name || '',
           // Scenario 2: co_offices in backend = from_cxo_office in frontend
           co_offices: isScenario2 ? [] : (doc.co_offices?.map(String) || []),
@@ -157,6 +178,12 @@ export default function DocumentForm() {
 
   const deptOptionsForCCExcludeSelfAndCEO = deptOptionsExcludeSelfAndCEO.filter(d => !directedSet.has(String(d.value)))
 
+  // Create regulatory body options for autocomplete
+  const regulatoryBodyOptions = regulatoryBodies.map(body => ({
+    value: String(body.id),
+    label: i18n.language === 'am' ? body.name_am : body.name_en
+  }))
+
   const update = (k, v) => {
     setForm(prev => {
       const next = { ...prev, [k]: v }
@@ -222,7 +249,11 @@ export default function DocumentForm() {
             // For Scenario 5, co_offices contains the originating office
             else if (form.doc_type === 'MEMO' && memoDirection === 'OPTION_1') {
               v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append('co_offices', val) })
-            } else {
+            } else if (k === 'letter_category' || k === 'letter_type') {
+            if (v) fd.append(k, v)
+          } else if (k === 'regulatory_body') {
+            if (v) fd.append(k, v)
+          } else {
               v.forEach(val => { if (val !== '' && val !== undefined && val !== null) fd.append(k, val) })
             }
           } else if (k === 'directed_offices') {
@@ -396,6 +427,78 @@ export default function DocumentForm() {
                     </>
                   )}
                 </select>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Letter Categorization */}
+        <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+          <div className="text-sm font-medium text-purple-600 dark:text-purple-300 mb-3">{t('letter_categorization')}</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">{t('letter_category')}</label>
+              <select className="w-full border border-purple-300 dark:border-purple-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500" value={form.letter_category} onChange={(e)=>update('letter_category', e.target.value)}>
+                <option value="GENERAL">{t('general_letter')}</option>
+                {isCeoLevel && <option value="REGULATORY">{t('regulatory_letter')}</option>}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">{t('letter_type')}</label>
+              <select className="w-full border border-purple-300 dark:border-purple-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500" value={form.letter_type} onChange={(e)=>update('letter_type', e.target.value)}>
+                <option value="TECHNICAL">{t('technical_letter')}</option>
+                <option value="LEGAL">{t('legal_letter')}</option>
+                <option value="FINANCIAL">{t('financial_letter')}</option>
+                <option value="ADMINISTRATIVE">{t('administrative_letter')}</option>
+                <option value="GENERAL">{t('general_letter')}</option>
+              </select>
+            </div>
+            {form.letter_category === 'REGULATORY' && isCeoLevel && (
+              <div>
+                <label className="block text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">{t('regulatory_body')}</label>
+                <select 
+                  className="w-full border border-purple-300 dark:border-purple-600 rounded-lg p-2.5 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500" 
+                  value={form.regulatory_body} 
+                  onChange={(e)=>{
+                    const selectedId = e.target.value
+                    update('regulatory_body', selectedId)
+                    // Auto-fill company_office_name with regulatory body name
+                    if (selectedId) {
+                      const selectedBody = regulatoryBodies.find(body => String(body.id) === selectedId)
+                      if (selectedBody) {
+                        const bodyName = i18n.language === 'am' ? selectedBody.name_am : selectedBody.name_en
+                        update('company_office_name', bodyName)
+                      }
+                    }
+                  }}
+                >
+                  <option value="">{t('select_regulatory_body')}</option>
+                  {regulatoryBodyOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const name = prompt(i18n.language === 'am' ? ' regulators body name' : 'Enter new regulatory body name:')
+                    if (name && name.trim()) {
+                      // Create new regulatory body
+                      api.post('/api/documents/regulatory-bodies/', {
+                        name_en: name.trim(),
+                        name_am: name.trim()
+                      }).then(response => {
+                        setRegulatoryBodies(prev => [...prev, response.data])
+                        update('regulatory_body', response.data.id)
+                        toast.success(i18n.language === 'am' ? 'Regulatory body added successfully' : 'Regulatory body added successfully')
+                      }).catch(err => {
+                        toast.error(i18n.language === 'am' ? 'Failed to add regulatory body' : 'Failed to add regulatory body')
+                      })
+                    }
+                  }}
+                  className="mt-2 text-xs text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-200 underline"
+                >
+                  + {t('add_new_regulatory_body')}
+                </button>
               </div>
             )}
           </div>

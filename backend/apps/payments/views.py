@@ -71,6 +71,35 @@ class PaymentViewSet(viewsets.ModelViewSet):
         if currency:
             queryset = queryset.filter(currency=currency)
         
+        # Date filtering - filter by registry_date or arrival_date
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        
+        if date_from or date_to:
+            from django.db.models import Q
+            date_filter = Q()
+            
+            if date_from and date_to:
+                # Filter payments where registry_date OR arrival_date is within the range
+                date_filter = (
+                    Q(registry_date__gte=date_from, registry_date__lte=date_to) |
+                    Q(arrival_date__gte=date_from, arrival_date__lte=date_to)
+                )
+            elif date_from:
+                # Filter payments where registry_date OR arrival_date is >= date_from
+                date_filter = (
+                    Q(registry_date__gte=date_from) |
+                    Q(arrival_date__gte=date_from)
+                )
+            elif date_to:
+                # Filter payments where registry_date OR arrival_date is <= date_to
+                date_filter = (
+                    Q(registry_date__lte=date_to) |
+                    Q(arrival_date__lte=date_to)
+                )
+            
+            queryset = queryset.filter(date_filter)
+        
         return queryset
     
     def perform_create(self, serializer):

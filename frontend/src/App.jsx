@@ -75,7 +75,7 @@ function NavBar() {
   }, [])
 
   return (
-    <header className="h-14 px-4 flex items-center justify-between bg-[#0B3C5D] dark:bg-slate-900 text-white border-b border-[#09324F] dark:border-slate-700">
+    <header className="h-14 px-4 flex items-center justify-between bg-[#0B3C5D] dark:bg-slate-900 text-white border-b border-[#09324F] dark:border-slate-700 min-w-full">
       <Link to="/dashboard" className="flex items-center gap-3" aria-label={t('app_title')}>
         <img src="/eeu-logo.png" alt="EEU" className="h-12 w-12 rounded-full ring-1 ring-white/20" />
         <span className="font-semibold tracking-tight">{t('app_title')}</span>
@@ -187,15 +187,15 @@ export default function App() {
       <Routes>
         <Route path="/" element={<PublicOnly><Login /></PublicOnly>} />
         <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
-        <Route path="/dashboard" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><Dashboard /></div></div></></RequireAuth>} />
-        <Route path="/documents" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><DocumentsList /></div></div></></RequireAuth>} />
-        <Route path="/documents/new" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><DocumentForm /></div></div></></RequireAuth>} />
-        <Route path="/documents/:id" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><DocumentDetail /></div></div></></RequireAuth>} />
-        <Route path="/documents/:id/edit" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><DocumentForm /></div></div></></RequireAuth>} />
-        <Route path="/payments" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><PaymentList /></div></div></></RequireAuth>} />
-        <Route path="/payments/reports" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><PaymentReports /></div></div></></RequireAuth>} />
-        <Route path="/settings" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><Settings /></div></div></></RequireAuth>} />
-        <Route path="/users" element={<RequireAuth><><NavBar /><div className="flex"><Sidebar /><div className="flex-1"><UserManagement /></div></div></></RequireAuth>} />
+        <Route path="/dashboard" element={<RequireAuth><div className="min-w-full"><NavBar /><div className="flex"><Sidebar /><div className="flex-1 overflow-x-auto"><Dashboard /></div></div></div></RequireAuth>} />
+        <Route path="/documents" element={<RequireAuth><div className="min-w-full"><NavBar /><div className="flex"><Sidebar /><div className="flex-1 overflow-x-auto"><DocumentsList /></div></div></div></RequireAuth>} />
+        <Route path="/documents/new" element={<RequireAuth><div className="min-w-full"><NavBar /><div className="flex"><Sidebar /><div className="flex-1 overflow-x-auto"><DocumentForm /></div></div></div></RequireAuth>} />
+        <Route path="/documents/:id" element={<RequireAuth><div className="min-w-full"><NavBar /><div className="flex"><Sidebar /><div className="flex-1 overflow-x-auto"><DocumentDetail /></div></div></div></RequireAuth>} />
+        <Route path="/documents/:id/edit" element={<RequireAuth><div className="min-w-full"><NavBar /><div className="flex"><Sidebar /><div className="flex-1 overflow-x-auto"><DocumentForm /></div></div></div></RequireAuth>} />
+        <Route path="/payments" element={<RequireAuth><div className="min-w-full"><NavBar /><div className="flex"><Sidebar /><div className="flex-1 overflow-x-auto"><PaymentList /></div></div></div></RequireAuth>} />
+        <Route path="/payments/reports" element={<RequireAuth><div className="min-w-full"><NavBar /><div className="flex"><Sidebar /><div className="flex-1 overflow-x-auto"><PaymentReports /></div></div></div></RequireAuth>} />
+        <Route path="/settings" element={<RequireAuth><div className="min-w-full"><NavBar /><div className="flex"><Sidebar /><div className="flex-1 overflow-x-auto"><Settings /></div></div></div></RequireAuth>} />
+        <Route path="/users" element={<RequireAuth><div className="min-w-full"><NavBar /><div className="flex"><Sidebar /><div className="flex-1 overflow-x-auto"><UserManagement /></div></div></div></RequireAuth>} />
       </Routes>
     </div>
   )

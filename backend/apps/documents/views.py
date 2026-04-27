@@ -7,6 +7,7 @@ from django.http import HttpResponse
 import csv
 from .models import Document, Attachment, Activity, DocumentAcknowledgment, DocumentReceipt
 from .serializers import DocumentListSerializer, DocumentDetailSerializer, DocumentCreateSerializer, DocumentUpdateSerializer, AttachmentSerializer
+from .views_performance import PerformanceTrackingMixin
 from apps.core.models import UserProfile, Department
 
 
@@ -26,7 +27,7 @@ class CanCreateDocument(permissions.BasePermission):
         return True
 
 
-class DocumentViewSet(viewsets.ModelViewSet):
+class DocumentViewSet(PerformanceTrackingMixin, viewsets.ModelViewSet):
     queryset = Document.objects.all().select_related('department', 'assigned_to', 'created_by')
     permission_classes = [permissions.IsAuthenticated, CanCreateDocument]
 
@@ -71,12 +72,18 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 Q(company_office_name__icontains=q)
             )
         source_param = self.request.query_params.get('source')
+        letter_category = self.request.query_params.get('letter_category')
+        letter_type = self.request.query_params.get('letter_type')
         if doc_type:
             qs = qs.filter(doc_type=doc_type)
         if source_param:
             qs = qs.filter(source=source_param)
         if status_param:
             qs = qs.filter(status=status_param)
+        if letter_category:
+            qs = qs.filter(letter_category=letter_category)
+        if letter_type:
+            qs = qs.filter(letter_type=letter_type)
         if department:
             qs = qs.filter(department_id=department)
         co_ids = []
@@ -337,6 +344,12 @@ class DocumentViewSet(viewsets.ModelViewSet):
         
         old_status = document.status
         document.status = new_status
+        
+        # Set dispatched_at timestamp when status changes to DISPATCHED
+        if new_status == 'DISPATCHED' and old_status != 'DISPATCHED':
+            from django.utils import timezone
+            document.dispatched_at = timezone.now()
+        
         document.save()
         Activity.objects.create(
             document=document,

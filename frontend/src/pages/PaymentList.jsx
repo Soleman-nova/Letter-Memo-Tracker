@@ -694,9 +694,9 @@ const PaymentList = () => {
                       </span>
                     </td>
                     <td className="p-4">
-                      {getStatusDate(payment) ? (
+                      {payment.registry_date ? (
                         <EthDateDisplay
-                          date={getStatusDate(payment)}
+                          date={payment.registry_date}
                           className="text-sm text-slate-700 dark:text-slate-100"
                         />
                       ) : (

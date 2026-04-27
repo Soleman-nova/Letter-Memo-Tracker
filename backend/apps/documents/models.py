@@ -37,6 +37,19 @@ CONFIDENTIALITY_LEVELS = [
     ('SECRET', 'Secret'),
 ]
 
+LETTER_CATEGORIES = [
+    ('GENERAL', 'General'),
+    ('REGULATORY', 'Regulatory'),
+]
+
+LETTER_TYPES = [
+    ('TECHNICAL', 'Technical'),
+    ('LEGAL', 'Legal'),
+    ('FINANCIAL', 'Financial'),
+    ('ADMINISTRATIVE', 'Administrative'),
+    ('GENERAL', 'General'),
+]
+
 User = get_user_model()
 
 
@@ -50,6 +63,10 @@ class Document(models.Model):
     ref_no = models.CharField(max_length=100, unique=True)
     subject = models.CharField(max_length=300)
     summary = models.TextField(blank=True)
+    # Letter categorization
+    letter_category = models.CharField(max_length=20, choices=LETTER_CATEGORIES, default='GENERAL')
+    letter_type = models.CharField(max_length=20, choices=LETTER_TYPES, default='GENERAL')
+    regulatory_body = models.ForeignKey('RegulatoryBody', on_delete=models.SET_NULL, null=True, blank=True, related_name='documents')
     # Parties / offices
     company_office_name = models.CharField(max_length=200, blank=True)
     co_offices = models.ManyToManyField(Department, blank=True, related_name='co_office_documents')
@@ -61,6 +78,7 @@ class Document(models.Model):
     priority = models.CharField(max_length=20, choices=PRIORITY_LEVELS, default='NORMAL', blank=True)
     confidentiality = models.CharField(max_length=20, choices=CONFIDENTIALITY_LEVELS, default='REGULAR', blank=True)
     registered_at = models.DateTimeField(auto_now_add=True)
+    dispatched_at = models.DateTimeField(null=True, blank=True, help_text="Timestamp when document status changed to DISPATCHED")
     # Dates
     received_date = models.DateField(null=True, blank=True)
     written_date = models.DateField(null=True, blank=True)
@@ -79,6 +97,24 @@ class Document(models.Model):
 
     def __str__(self):
         return f"{self.ref_no} - {self.subject}"
+
+
+class RegulatoryBody(models.Model):
+    """Model to store regulatory body names for dynamic management"""
+    name_en = models.CharField(max_length=200, unique=True)
+    name_am = models.CharField(max_length=200, unique=True)
+    created_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name='created_regulatory_bodies')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['name_en']
+    
+    def __str__(self):
+        return self.name_en
+    
+    def get_localized_name(self, language='en'):
+        """Return name based on language"""
+        return self.name_am if language == 'am' else self.name_en
 
 
 class Attachment(models.Model):
@@ -126,3 +162,29 @@ class DocumentReceipt(models.Model):
 
     def __str__(self):
         return f"{self.department.code} received {self.document.ref_no}"
+
+
+class DepartmentPerformanceSnapshot(models.Model):
+    """Monthly performance snapshot for departments"""
+    METRIC_TYPES = [
+        ('receipt', 'Receipt Performance'),
+        ('cc_acknowledgment', 'CC Acknowledgment Performance'),
+    ]
+    
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='performance_snapshots')
+    month = models.DateField(help_text="First day of the month")
+    metric_type = models.CharField(max_length=20, choices=METRIC_TYPES)
+    average_hours = models.DecimalField(max_digits=6, decimal_places=2)
+    document_count = models.IntegerField()
+    rank = models.IntegerField(help_text="Department's rank for that month")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('department', 'month', 'metric_type')
+        ordering = ['-month', 'rank']
+        indexes = [
+            models.Index(fields=['-month', 'metric_type']),
+        ]
+    
+    def __str__(self):
+        return f"{self.department.code} - {self.month.strftime('%B %Y')} - {self.metric_type}"

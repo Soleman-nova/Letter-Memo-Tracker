@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.conf import settings
 from django.db import transaction
-from .models import Document, Attachment, Activity, DocumentAcknowledgment, DocumentReceipt
+from .models import Document, Attachment, Activity, DocumentAcknowledgment, DocumentReceipt, RegulatoryBody
 from apps.core.models import Department
 
 
@@ -84,10 +84,13 @@ class DocumentListSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source='department.name', read_only=True, default=None)
     perspective_direction = serializers.SerializerMethodField()
     destination_display = serializers.SerializerMethodField()
+    letter_category_display = serializers.CharField(source='get_letter_category_display', read_only=True)
+    letter_type_display = serializers.CharField(source='get_letter_type_display', read_only=True)
+    regulatory_body_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Document
-        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'status', 'priority', 'registered_at', 'department_name', 'perspective_direction', 'destination_display']
+        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'status', 'priority', 'registered_at', 'department_name', 'perspective_direction', 'destination_display', 'letter_category', 'letter_type', 'letter_category_display', 'letter_type_display', 'regulatory_body_name']
 
     def _get_scenario(self, obj):
         """Determine scenario number for a document (kept in sync with DocumentDetailSerializer/ViewSet logic)."""
@@ -206,6 +209,15 @@ class DocumentListSerializer(serializers.ModelSerializer):
 
         return 'CEO Office'
 
+    def get_regulatory_body_name(self, obj):
+        """Return localized regulatory body name"""
+        if obj.regulatory_body:
+            # Get language from request context if available
+            request = self.context.get('request')
+            language = 'am' if request and request.META.get('HTTP_ACCEPT_LANGUAGE', '').startswith('am') else 'en'
+            return obj.regulatory_body.get_localized_name(language)
+        return None
+
 
 class DocumentDetailSerializer(serializers.ModelSerializer):
     attachments = AttachmentSerializer(many=True, read_only=True)
@@ -216,6 +228,10 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
     co_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
     cc_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
     directed_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
+    regulatory_body = serializers.PrimaryKeyRelatedField(queryset=RegulatoryBody.objects.all(), required=False, allow_null=True)
+    letter_category_display = serializers.CharField(source='get_letter_category_display', read_only=True)
+    letter_type_display = serializers.CharField(source='get_letter_type_display', read_only=True)
+    regulatory_body_name = serializers.SerializerMethodField()
     co_office_names = serializers.SerializerMethodField()
     cc_office_names = serializers.SerializerMethodField()
     directed_office_names = serializers.SerializerMethodField()
@@ -231,7 +247,7 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Document
-        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'status', 'priority', 'confidentiality', 'registered_at', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'ceo_note', 'signature_name', 'company_office_name', 'cc_external_names', 'co_offices', 'co_office_names', 'co_office_name', 'cc_offices', 'cc_office_names', 'directed_offices', 'directed_office_names', 'directed_office_name', 'department', 'department_name', 'department_code', 'assigned_to', 'prefix', 'sequence', 'requires_ceo_direction', 'attachments', 'activities', 'acknowledgments', 'pending_acknowledgments', 'receipts', 'pending_receipts', 'user_can_acknowledge', 'user_can_receive', 'scenario']
+        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'status', 'priority', 'confidentiality', 'registered_at', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'ceo_note', 'signature_name', 'company_office_name', 'cc_external_names', 'letter_category', 'letter_type', 'letter_category_display', 'letter_type_display', 'regulatory_body', 'regulatory_body_name', 'co_offices', 'co_office_names', 'co_office_name', 'cc_offices', 'cc_office_names', 'directed_offices', 'directed_office_names', 'directed_office_name', 'department', 'department_name', 'department_code', 'assigned_to', 'prefix', 'sequence', 'requires_ceo_direction', 'attachments', 'activities', 'acknowledgments', 'pending_acknowledgments', 'receipts', 'pending_receipts', 'user_can_acknowledge', 'user_can_receive', 'scenario']
 
     def get_scenario(self, obj):
         return self._get_scenario(obj)
@@ -454,6 +470,15 @@ class DocumentDetailSerializer(serializers.ModelSerializer):
         pending = obj.directed_offices.exclude(id__in=received_dept_ids)
         return [{'id': d.id, 'name': d.name, 'code': d.code} for d in pending]
 
+    def get_regulatory_body_name(self, obj):
+        """Return localized regulatory body name"""
+        if obj.regulatory_body:
+            # Get language from request context if available
+            request = self.context.get('request')
+            language = 'am' if request and request.META.get('HTTP_ACCEPT_LANGUAGE', '').startswith('am') else 'en'
+            return obj.regulatory_body.get_localized_name(language)
+        return None
+
 
 class DocumentCreateSerializer(serializers.ModelSerializer):
     attachments = serializers.ListField(child=serializers.FileField(), write_only=True, required=False)
@@ -464,10 +489,11 @@ class DocumentCreateSerializer(serializers.ModelSerializer):
     directed_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
     co_office = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), allow_null=True, required=False, write_only=True)
     directed_office = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), allow_null=True, required=False, write_only=True)
+    regulatory_body = serializers.PrimaryKeyRelatedField(queryset=RegulatoryBody.objects.all(), required=False, allow_null=True)
 
     class Meta:
         model = Document
-        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'priority', 'confidentiality', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'company_office_name', 'cc_external_names', 'co_offices', 'co_office', 'cc_offices', 'directed_offices', 'directed_office', 'ceo_note', 'signature_name', 'department', 'requires_ceo_direction', 'attachments', 'status']
+        fields = ['id', 'ref_no', 'doc_type', 'source', 'subject', 'summary', 'sender_name', 'receiver_name', 'priority', 'confidentiality', 'received_date', 'written_date', 'memo_date', 'ceo_directed_date', 'due_date', 'company_office_name', 'cc_external_names', 'letter_category', 'letter_type', 'regulatory_body', 'co_offices', 'co_office', 'cc_offices', 'directed_offices', 'directed_office', 'ceo_note', 'signature_name', 'department', 'requires_ceo_direction', 'attachments', 'status']
         read_only_fields = ['id', 'status']
 
     def create(self, validated_data):
@@ -623,13 +649,15 @@ class DocumentUpdateSerializer(serializers.ModelSerializer):
     co_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
     directed_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
     cc_offices = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), many=True, required=False)
+    regulatory_body = serializers.PrimaryKeyRelatedField(queryset=RegulatoryBody.objects.all(), required=False, allow_null=True)
 
     class Meta:
         model = Document
         fields = [
             'status', 'ceo_directed_date', 'ceo_note', 'directed_offices', 'co_offices', 'cc_offices',
             'subject', 'summary', 'company_office_name', 'cc_external_names', 'received_date', 'written_date',
-            'memo_date', 'due_date', 'signature_name', 'priority', 'confidentiality'
+            'memo_date', 'due_date', 'signature_name', 'priority', 'confidentiality', 
+            'letter_category', 'letter_type', 'regulatory_body'
         ]
 
     def update(self, instance, validated_data):

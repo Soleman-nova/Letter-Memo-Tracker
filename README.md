@@ -1,8 +1,8 @@
-# EEU Letter & Memo Tracker
+# EEU Centralized Correspondence & Payment Registry
 
-A LAN-only, offline-capable tracking system for Ethiopian Electric Utility (EEU) letters and memos.
+A comprehensive LAN-based tracking system for Ethiopian Electric Utility (EEU) managing letters, memos, and payment processing.
 
-- **Frontend**: React 18 (Vite, TailwindCSS, i18next, Lucide icons)
+- **Frontend**: React 18 (Vite, TailwindCSS, i18next, Lucide icons, MUI)
 - **Backend**: Django 5 + Django REST Framework + JWT (SimpleJWT)
 - **Database**: PostgreSQL
 - **Deployment target**: Windows Server behind IIS reverse proxy (offline LAN)
@@ -11,8 +11,10 @@ A LAN-only, offline-capable tracking system for Ethiopian Electric Utility (EEU)
 
 ## Features
 
-### 13 Document Workflow Scenarios
-All 13 scenarios are fully implemented with role-based permissions:
+### Document Management
+
+#### 15 Document Workflow Scenarios
+All 15 scenarios are fully implemented with role-based permissions:
 
 | # | Type | Source | Flow | Key Action |
 |---|------|--------|------|------------|
@@ -29,6 +31,8 @@ All 13 scenarios are fully implemented with role-based permissions:
 | S11 | Outgoing Letter | Internal | CxO → CxO | Dispatch → Receive |
 | S12 | Memo | Internal | CxO → CxO | Dispatch → Receive |
 | S13 | Memo | External | CxO → CEO | Register → Receive |
+| S14 | Outgoing Letter | Internal | CxO → CEO | CEO Direction → Dispatch |
+| S15 | Memo | Internal | CxO → CEO | CEO Direction → Dispatch |
 
 ### Roles & Permissions
 | Role | Create Docs | View | Edit | User Mgmt |
@@ -44,17 +48,50 @@ All 13 scenarios are fully implemented with role-based permissions:
 
 Invalid transitions are blocked by a backend status transition matrix.
 
-### Other Features
-- **JWT Authentication** with token refresh and auto-redirect on expiry
-- **Dark Mode** with persistent toggle
-- **Internationalization** (English / Amharic)
+### Document Features
+- **Letter Categorization**: General or Regulatory letters
+- **Letter Types**: Technical, Legal, Financial, Administrative, General
+- **Regulatory Bodies**: Dynamic management of regulatory body names (CEO Secretary)
 - **File Attachments** with streaming upload (no memory limit)
 - **Activity Log** tracking all document actions
 - **Receipt Tracking** per department with pending/completed status
 - **CC Acknowledgment** (Mark as Seen) for CC'd offices
 - **Priority** (Low/Normal/High/Urgent) and **Confidentiality** (Regular/Confidential/Secret)
+- **Audit Export**: Download immutable CSV audit trail for compliance
+- **Timeline View**: Unified chronological view of all activities, receipts, and acknowledgments
+- **Performance Tracking**: Fastest Receipt and CC Acknowledgment metrics by department
+
+### Payment Management
+- **Payment Registration**: Track invoices, TT numbers, vendor payments
+- **Payment Types**: Invoice, Advance, Reimbursement, Petty Cash, Other
+- **Multi-Currency**: ETB, USD, EUR support
+- **Payment Status**: Pending, Approved, Paid, Rejected, Cancelled
+- **Duplicate Detection**: Real-time warnings for duplicate invoices/TT numbers
+- **Vendor Autocomplete**: Smart suggestions from payment history
+- **Saved Filters**: Save and reuse common filter combinations
+- **Payment Reports**: Monthly summaries with currency breakdowns
+- **Excel Export**: Export payment data to Excel with multiple sheets
+- **Payment History**: Track status changes and modifications
+
+### Performance Analytics (CEO & CEO Secretary)
+- **Best Performers Dashboard**: Track department performance metrics
+- **Receipt Performance**: Average time from dispatch to receipt confirmation
+- **CC Acknowledgment Performance**: Average time from dispatch to acknowledgment
+- **Historical Trends**: Month-over-month performance comparison
+- **Ranking System**: Gold/Silver/Bronze badges for top performers
+- **Excel Export**: Download performance data for analysis
+- **Monthly Snapshots**: Automated performance data archival
+
+### System Features
+- **JWT Authentication** with token refresh and auto-redirect on expiry
+- **Dark Mode** with persistent toggle across all pages
+- **Internationalization** (English / Amharic) with full UI translation
+- **Ethiopian Calendar**: Date picker and display with ET/GC toggle
 - **User Management** (SUPER_ADMIN only): create, edit, reset password, delete
 - **Settings**: dark mode, fullscreen, change password, account info
+- **Responsive Design**: Mobile-friendly interface with horizontal scrolling support
+- **Real-time Search**: Debounced search with instant results
+- **Pagination**: Server-side pagination for large datasets
 
 ---
 
@@ -161,9 +198,27 @@ windsurf-project/
 
 ---
 
-## Future Enhancements
-- Printing/export templates (PDF)
-- Date range filters and pagination
-- Email/notification reminders for due dates
-- Dashboard charts and reporting
-- Backup/restore scripts for PostgreSQL and media
+## Recent Enhancements (2026)
+- ✅ Payment management system with multi-currency support
+- ✅ Performance tracking and analytics dashboard
+- ✅ Regulatory body management
+- ✅ Letter categorization (General/Regulatory)
+- ✅ Enhanced audit trail with CSV export
+- ✅ Monthly performance snapshots
+- ✅ Saved payment filters
+- ✅ Duplicate payment detection
+- ✅ Excel export for payments and performance data
+- ✅ Horizontal scrolling support for wide tables
+- ✅ Filter improvements (letter category, letter type)
+
+## Planned Enhancements
+- 📋 Advanced reporting with custom report builder
+- 📋 Email/SMS notifications for due dates and approvals
+- 📋 Document templates for common letter types
+- 📋 Workflow automation and auto-routing
+- 📋 SLA management with deadline tracking
+- 📋 Budget tracking integration with payments
+- 📋 Vendor management profiles
+- 📋 Two-factor authentication (2FA)
+- 📋 Mobile app (iOS/Android)
+- 📋 Advanced search with full-text indexing
